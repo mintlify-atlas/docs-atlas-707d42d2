@@ -1,0 +1,99 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Repo Manager",
+  "projectDescription": "A ZSH plugin for managing git repositories using a worktree-first workflow with instant context switching.",
+  "theme": "aspen",
+  "primaryColor": "#2563eb",
+  "lightColor": "#3b82f6",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/worktree-workflow",
+          "concepts/directory-layout",
+          "concepts/hooks"
+        ]
+      },
+      {
+        "group": "Command Reference",
+        "pages": [
+          "commands/overview",
+          "commands/get",
+          "commands/goto",
+          "commands/list",
+          "commands/new",
+          "commands/open",
+          "commands/convert"
+        ]
+      },
+      {
+        "group": "Worktree Management",
+        "pages": [
+          "worktree/overview",
+          "worktree/add",
+          "worktree/list",
+          "worktree/go",
+          "worktree/rm",
+          "worktree/pr",
+          "worktree/clean"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "pages": [
+          "configuration/base-directory",
+          "configuration/hooks",
+          "configuration/dependencies"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/migrating-existing-repos",
+          "guides/pr-review-workflow",
+          "guides/multi-branch-development"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Worktree-first git workflow with bare repository cloning",
+    "Instant branch switching without stashing or checkout thrashing",
+    "GitHub PR worktree creation for code reviews",
+    "Repository organization with customizable base directory",
+    "Interactive worktree selection with fzf integration",
+    "Convert existing standard clones to worktree layout",
+    "Customizable hooks for workflow automation",
+    "ZSH completion support for all commands"
+  ],
+  "publicApiSurface": [
+    "repo get <repo>",
+    "repo goto <repo>",
+    "repo list",
+    "repo new <repo>",
+    "repo open",
+    "repo convert [path]",
+    "repo wt add <branch>",
+    "repo wt list",
+    "repo wt go <branch>",
+    "repo wt rm <branch>",
+    "repo wt pr <number>",
+    "repo wt clean",
+    "post_repo_clone()",
+    "post_repo_goto()",
+    "post_repo_new()",
+    "post_wt_add()",
+    "post_wt_go()",
+    "post_wt_rm()"
+  ]
+}
