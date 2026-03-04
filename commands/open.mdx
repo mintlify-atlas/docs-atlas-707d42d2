@@ -1,0 +1,206 @@
+---
+title: repo open
+description: Open repository remote URL in browser
+---
+
+## Syntax
+
+```bash
+repo open
+```
+
+## Description
+
+The `repo open` command opens the current Git repository's remote URL in your default web browser. It automatically converts SSH URLs to HTTPS format for browser compatibility.
+
+<Note>
+  This command must be run from within a Git repository that has an `origin` remote configured.
+</Note>
+
+## How It Works
+
+1. Retrieves the `origin` remote URL using `git remote get-url origin`
+2. Converts SSH format (`git@github.com:user/repo.git`) to HTTPS (`https://github.com/user/repo.git`)
+3. Opens the URL using `xdg-open` (Linux standard)
+
+## Examples
+
+### Open current repository
+
+```bash
+cd $REPO_BASE_DIR/github.com/user/project/main
+repo open
+```
+
+Opens `https://github.com/user/project` in your browser.
+
+### Open after cloning
+
+```bash
+repo get torvalds/linux
+repo open
+```
+
+Opens `https://github.com/torvalds/linux` in your browser.
+
+### Open from any worktree
+
+```bash
+repo goto user/project  # Select feature-branch
+repo open
+```
+
+Opens the repository's remote URL, regardless of which worktree you're in.
+
+## URL Conversion
+
+The command handles various URL formats:
+
+### SSH to HTTPS
+
+```
+git@github.com:user/repo.git
+  → https://github.com/user/repo.git
+```
+
+### Already HTTPS
+
+```
+https://github.com/user/repo.git
+  → https://github.com/user/repo.git
+```
+
+### Other hosting services
+
+```
+git@gitlab.com:group/project.git
+  → https://gitlab.com/group/project.git
+
+git@bitbucket.org:team/repo.git
+  → https://bitbucket.org/team/repo.git
+```
+
+## Error Handling
+
+### Not in a Git repository
+
+```bash
+cd ~/Downloads
+repo open
+```
+
+Output:
+```
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+### No origin remote
+
+```bash
+repo new local-only
+repo open
+```
+
+Output:
+```
+fatal: No such remote 'origin'
+```
+
+### xdg-open not available
+
+```
+Error: xdg-open command not found
+```
+
+This typically occurs on systems without `xdg-open` installed (rare on modern Linux distributions).
+
+### Failed to open URL
+
+```
+Error: Failed to open https://github.com/user/repo
+```
+
+This may happen if no browser is configured or available.
+
+## Platform Support
+
+The command uses `xdg-open`, which is the standard way to open URLs on Linux systems. It respects your default browser configuration.
+
+<Note>
+  On macOS or Windows, you may need to modify the `repo_open` function to use `open` (macOS) or `start` (Windows) instead of `xdg-open`.
+</Note>
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone a repository with remote configured
+- [repo goto](/commands/goto) - Navigate to a repository before opening
+
+## Common Use Cases
+
+### Quick access to pull requests
+
+```bash
+repo goto user/project
+repo open
+# Navigate to Pull Requests in browser
+```
+
+### View repository issues
+
+```bash
+repo open
+# Navigate to Issues tab in browser
+```
+
+### Share repository link
+
+```bash
+repo open
+# Copy URL from browser address bar
+```
+
+### Check CI/CD status
+
+```bash
+repo open
+# View Actions/Pipelines tab
+```
+
+## Tips
+
+<Tip>
+  Create a shell alias for even faster access:
+  
+  ```bash
+  alias ropen='repo open'
+  ```
+</Tip>
+
+<Tip>
+  Combine with `gh` CLI for GitHub-specific actions:
+  
+  ```bash
+  repo open  # View in browser
+  gh pr list # List PRs in terminal
+  ```
+</Tip>
+
+## Implementation Details
+
+Source code: `functions/open.zsh:1`
+
+The command uses a series of string transformations:
+
+1. Replace `git@` with `https://` using parameter expansion
+2. Convert the first colon after the domain to a slash using `sed`:
+   ```bash
+   sed -E 's|^https://([^/]+):|https://\1/|'
+   ```
+3. Open the URL with `xdg-open`
+
+Example transformation:
+```
+git@github.com:user/repo.git
+  → https://github.com:user/repo.git    # After git@ replacement
+  → https://github.com/user/repo.git    # After colon replacement
+```

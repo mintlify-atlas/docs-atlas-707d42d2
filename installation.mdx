@@ -1,0 +1,219 @@
+---
+title: Installation
+description: Install Repo Manager and configure your environment
+---
+
+## Install with a ZSH plugin manager
+
+Repo Manager works with all major ZSH plugin managers. Choose the one you use:
+
+<Tabs>
+  <Tab title="antidote">
+    Add to your `.zsh_plugins.txt`:
+
+    ```txt
+    abs3ntdev/repo-manager
+    ```
+
+    Then reload antidote:
+
+    ```zsh
+    antidote update
+    ```
+  </Tab>
+
+  <Tab title="zinit">
+    Add to your `.zshrc`:
+
+    ```zsh
+    zinit light abs3ntdev/repo-manager
+    ```
+
+    Then reload your shell:
+
+    ```zsh
+    source ~/.zshrc
+    ```
+  </Tab>
+
+  <Tab title="sheldon">
+    Add the plugin:
+
+    ```zsh
+    sheldon add repo-manager --github abs3ntdev/repo-manager
+    ```
+
+    Then reload sheldon:
+
+    ```zsh
+    sheldon lock
+    ```
+  </Tab>
+</Tabs>
+
+## Configuration
+
+### Base directory
+
+By default, all repositories are cloned to `$HOME/repos`. To change this, set the `REPO_BASE_DIR` environment variable in your `.zshrc` before loading the plugin:
+
+```zsh
+export REPO_BASE_DIR="$HOME/projects"
+```
+
+The directory will be created automatically if it doesn't exist.
+
+<Note>
+Make sure to set `REPO_BASE_DIR` before your plugin manager loads Repo Manager.
+</Note>
+
+### Example .zshrc configuration
+
+```zsh
+# Set base directory for repositories
+export REPO_BASE_DIR="$HOME/repos"
+
+# Load plugin manager (example with zinit)
+zinit light abs3ntdev/repo-manager
+```
+
+## Optional dependencies
+
+Repo Manager works out of the box, but these optional tools enhance the experience:
+
+### fzf (fuzzy finder)
+
+**Purpose**: Enables interactive worktree selection when navigating to repos with multiple worktrees.
+
+**Installation**:
+
+<CodeGroup>
+```zsh macOS
+brew install fzf
+```
+
+```zsh Ubuntu/Debian
+sudo apt install fzf
+```
+
+```zsh Arch Linux
+sudo pacman -S fzf
+```
+</CodeGroup>
+
+**What you get**: When you run `repo goto user/repo` on a repository with multiple worktrees, fzf presents an interactive picker:
+
+```zsh
+repo goto user/repo
+# Shows interactive menu:
+# > main
+#   feature-auth
+#   fix-crash
+#   pr-review
+```
+
+<Note>
+Without fzf, `repo goto` will navigate to the default branch worktree.
+</Note>
+
+### gh (GitHub CLI)
+
+**Purpose**: Required for `repo wt pr` command to create worktrees from GitHub pull requests.
+
+**Installation**:
+
+<CodeGroup>
+```zsh macOS
+brew install gh
+```
+
+```zsh Ubuntu/Debian
+sudo apt install gh
+```
+
+```zsh Arch Linux
+sudo pacman -S github-cli
+```
+</CodeGroup>
+
+**Setup**: Authenticate with GitHub:
+
+```zsh
+gh auth login
+```
+
+**What you get**: Create worktrees directly from PR numbers:
+
+```zsh
+repo wt pr 123    # fetches PR #123 and creates worktree
+```
+
+<Warning>
+Without `gh` CLI installed and authenticated, the `repo wt pr` command will fail with an error.
+</Warning>
+
+## Verify installation
+
+Check that Repo Manager is loaded correctly:
+
+```zsh
+repo help
+```
+
+You should see the help output:
+
+```
+Usage: repo <command> [arguments]
+
+Commands:
+  get <repo>          Clone a repository (bare + worktree layout)
+  open                Open the current repository in the browser
+  aur <repo>          Clone an AUR repository
+  list                List all repositories
+  go|goto <repo>      Navigate to a repository (worktree picker if applicable)
+  new|create <repo>   Create a new repository
+  convert [path]      Convert a standard clone to worktree layout
+  wt <subcommand>     Worktree management (run from inside a repo)
+  help                Show this help message
+```
+
+Check your base directory:
+
+```zsh
+echo $REPO_BASE_DIR
+# Should output: /home/user/repos (or your custom path)
+```
+
+## Customize hooks (optional)
+
+Repo Manager provides hooks that execute after certain operations. By default, these hooks change to the new directory (`cd`), but you can customize them to open your editor, run scripts, or anything else.
+
+Add to your `.zshrc` after the plugin loads:
+
+```zsh
+# Open VS Code after cloning a repo
+post_repo_clone() {
+  cd "$1" && code .
+}
+
+# Open VS Code when creating a new worktree
+post_wt_add() {
+  cd "$1" && code .
+}
+
+# Just change directory for other operations
+post_repo_goto()  { cd "$1" }
+post_repo_new()   { cd "$1" }
+post_wt_go()      { cd "$1" }
+post_wt_rm()      { : }
+```
+
+<Note>
+Hooks must be defined after Repo Manager loads, so place them after your plugin manager configuration in `.zshrc`.
+</Note>
+
+## Next steps
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Clone your first repository and start using worktrees
+</Card>

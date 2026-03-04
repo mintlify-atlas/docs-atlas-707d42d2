@@ -1,0 +1,406 @@
+---
+title: repo wt pr
+description: Create a worktree from a GitHub pull request
+---
+
+Create a worktree directly from a GitHub pull request for easy review and testing.
+
+## Syntax
+
+```bash
+repo wt pr <number>
+```
+
+## Arguments
+
+- `<number>` (required): The GitHub pull request number
+
+## Requirements
+
+### GitHub CLI
+
+This command requires the GitHub CLI (`gh`) to be installed and authenticated:
+
+```bash
+# Install GitHub CLI (macOS)
+brew install gh
+
+# Install GitHub CLI (Linux)
+sudo apt install gh
+
+# Authenticate
+gh auth login
+```
+
+Source: `functions/worktree.zsh:129-132`
+
+### GitHub Repository
+
+The repository must:
+- Have a GitHub remote configured
+- Use GitHub as the origin remote
+- Be accessible with your GitHub authentication
+
+## Behavior
+
+The `pr` command creates a worktree from a pull request with these steps:
+
+### 1. GitHub CLI Validation
+
+First, checks if `gh` CLI is available:
+- Searches for `gh` command in PATH
+- Displays error if not found
+- Requires installation before proceeding
+
+Source: `functions/worktree.zsh:129-132`
+
+### 2. Repository Information
+
+Retrieves repository details:
+- Gets the origin remote URL from the bare repository
+- Converts URL to `OWNER/REPO` format for GitHub CLI
+- Handles both SSH and HTTPS remote URLs
+
+Source: `functions/worktree.zsh:139-144`
+
+### 3. Pull Request Branch Resolution
+
+Fetches PR details using GitHub CLI:
+- Queries GitHub API for PR #`<number>`
+- Extracts the head branch name (source branch of PR)
+- Validates that the PR exists and is accessible
+
+Source: `functions/worktree.zsh:146-152`
+
+### 4. Existing Worktree Check
+
+Before fetching, checks if worktree already exists:
+- Uses the PR's branch name to construct worktree path
+- If worktree exists, displays message and runs post-add hooks
+- Avoids re-fetching if worktree is already present
+
+Source: `functions/worktree.zsh:156-160`
+
+### 5. Fetch PR Branch
+
+Fetches the PR branch from GitHub:
+- Uses Git's pull request ref: `pull/<number>/head`
+- Creates a local branch with the PR's branch name
+- Downloads all commits from the PR
+
+Source: `functions/worktree.zsh:162-165`
+
+### 6. Create Worktree
+
+Creates a worktree for the PR branch:
+- Worktree path: `<repo-root>/<branch-name>/`
+- Checks out the fetched PR branch
+- Sets up the working directory
+
+Source: `functions/worktree.zsh:167-170`
+
+### 7. Tracking Configuration
+
+Attempts to set up remote tracking:
+- Tries to configure `origin/<branch>` as upstream
+- Silently continues if upstream branch doesn't exist
+- Useful if PR branch exists on origin
+
+Source: `functions/worktree.zsh:172`
+
+### 8. Post-Add Hooks
+
+After successful creation:
+- Calls `post_wt_add` hook with worktree path
+- May navigate to the PR worktree
+- May display PR information
+
+Source: `functions/worktree.zsh:174-175`
+
+## Examples
+
+### Review Pull Request #42
+
+```bash
+# Create worktree for PR #42
+repo wt pr 42
+
+# Output:
+# Created worktree for PR #42: /path/to/repo/feature-branch
+```
+
+The worktree is created using the PR's source branch name.
+
+Source: `functions/worktree.zsh:174`
+
+### Review and Test
+
+```bash
+# Create PR worktree
+repo wt pr 123
+
+# Navigate to it
+repo wt go feature-name
+
+# Run tests
+npm test
+
+# Review code
+code .
+```
+
+### Multiple PR Reviews
+
+```bash
+# Review several PRs in parallel
+repo wt pr 101
+repo wt pr 102
+repo wt pr 103
+
+# Switch between them
+repo wt go pr-101-branch
+repo wt go pr-102-branch
+```
+
+### Cleanup After Review
+
+```bash
+# After reviewing and approving
+repo wt rm feature-branch
+
+# Or use the PR number if you remember the branch
+repo wt list | grep "feature-branch"
+repo wt rm feature-branch
+```
+
+## Error Cases
+
+### Missing PR Number
+
+```bash
+repo wt pr
+
+# Output:
+# Error: PR number is required
+# Usage: repo wt pr <number>
+```
+
+Source: `functions/worktree.zsh:123-127`
+
+### GitHub CLI Not Installed
+
+```bash
+repo wt pr 42
+
+# Output:
+# Error: 'gh' CLI is required for PR worktrees
+```
+
+**Solution**: Install and authenticate GitHub CLI:
+```bash
+brew install gh
+gh auth login
+```
+
+Source: `functions/worktree.zsh:129-132`
+
+### PR Not Found
+
+```bash
+# Invalid or inaccessible PR number
+repo wt pr 99999
+
+# Output:
+# Error: Could not determine branch for PR #99999
+```
+
+This error occurs when:
+- The PR number doesn't exist
+- The PR is in a different repository
+- You don't have access to the PR
+- The PR has been deleted
+
+Source: `functions/worktree.zsh:149-152`
+
+### Failed to Fetch PR
+
+```bash
+repo wt pr 42
+
+# Output:
+# Error: Failed to fetch PR #42
+```
+
+Possible causes:
+- Network connectivity issues
+- GitHub authentication problems
+- Repository access restrictions
+- Deleted or closed PR branch
+
+Source: `functions/worktree.zsh:162-165`
+
+### Failed to Create Worktree
+
+```bash
+repo wt pr 42
+
+# Output:
+# Error: Failed to create worktree for PR #42
+```
+
+This can occur if:
+- The worktree directory already exists but isn't tracked
+- Filesystem permissions prevent directory creation
+- Disk space is insufficient
+
+Source: `functions/worktree.zsh:167-170`
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt pr 42
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+Source: `functions/worktree.zsh:135-136`
+
+## Tips and Best Practices
+
+### Install GitHub CLI First
+
+Set up `gh` CLI before using this command:
+
+```bash
+# Install
+brew install gh  # macOS
+sudo apt install gh  # Linux
+
+# Authenticate
+gh auth login
+
+# Verify
+gh auth status
+```
+
+### Finding PR Numbers
+
+Get PR numbers from:
+- GitHub web interface
+- GitHub CLI: `gh pr list`
+- GitHub notifications
+- PR URLs: `github.com/owner/repo/pull/123` → number is `123`
+
+### Review Workflow
+
+Efficient PR review process:
+
+```bash
+# 1. Create PR worktree
+repo wt pr 42
+
+# 2. Navigate to it (if not done automatically)
+repo wt go pr-branch-name
+
+# 3. Review code
+git log
+git diff main..HEAD
+
+# 4. Test changes
+npm install
+npm test
+
+# 5. Leave comments (using gh CLI)
+gh pr comment 42 --body "LGTM!"
+
+# 6. Clean up
+repo wt rm pr-branch-name
+```
+
+### Parallel Reviews
+
+Review multiple PRs without context switching:
+
+```bash
+# Create worktrees for multiple PRs
+repo wt pr 101
+repo wt pr 102
+repo wt pr 103
+
+# Each gets its own directory
+# Switch between them with 'repo wt go'
+```
+
+### Branch Naming
+
+The worktree uses the PR's source branch name:
+- If PR is from `feature/new-api`, worktree is `feature/new-api`
+- Branch names may include slashes
+- Use `repo wt list` to see exact branch names
+
+### Existing Worktrees
+
+If you run `repo wt pr` on a PR whose worktree already exists:
+- No error occurs
+- Worktree is not recreated
+- Post-add hooks still run
+- Useful for re-entering an existing PR worktree
+
+Source: `functions/worktree.zsh:156-160`
+
+### Upstream Tracking
+
+The command attempts to set upstream tracking:
+- Enables `git pull` to fetch PR updates
+- Works if the PR branch exists on origin
+- Silently skips if branch is fork-based or doesn't exist remotely
+
+Source: `functions/worktree.zsh:172`
+
+### Fork-Based PRs
+
+For PRs from forks:
+- The command still works
+- Fetches from the PR ref directly
+- Upstream tracking may not be configured
+- You can still review and test the code
+
+### Updating PR Worktrees
+
+If the PR is updated after creating the worktree:
+
+```bash
+# Navigate to PR worktree
+repo wt go pr-branch
+
+# Fetch and pull updates
+git fetch origin pull/42/head
+git merge FETCH_HEAD
+```
+
+### Integration with GitHub CLI
+
+Combine with other `gh` commands:
+
+```bash
+# List PRs and create worktree
+gh pr list
+repo wt pr 42
+
+# View PR details in worktree
+repo wt go pr-branch
+gh pr view 42
+
+# Check CI status
+gh pr checks 42
+```
+
+## See Also
+
+- [repo wt add](/worktree/add) - Create regular worktrees
+- [repo wt list](/worktree/list) - View all worktrees
+- [repo wt go](/worktree/go) - Navigate to worktrees
+- [repo wt rm](/worktree/rm) - Remove worktrees
+- [GitHub CLI Documentation](https://cli.github.com/manual/) - Learn more about `gh`

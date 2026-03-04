@@ -1,80 +1,240 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with Repo Manager in 5 minutes
 ---
 
-## Get started in three steps
+## Clone your first repository
 
-Get your documentation site running locally and make your first customization.
+Use `repo get` to clone any repository. Repo Manager automatically creates a bare repository with a worktree for the default branch:
 
-### Step 1: Set up your local environment
+```zsh
+repo get github.com/user/repo
+```
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+This creates the following structure:
 
-### Step 2: Deploy your changes
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/       # bare git repo
+├── .git         # file pointing to .bare
+└── main/        # worktree for main branch (you're here)
+```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+You're automatically placed in the `main/` worktree and can start working immediately.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Note>
+Repo Manager accepts multiple URL formats:
+- `github.com/user/repo`
+- `https://github.com/user/repo`
+- `git@github.com:user/repo.git`
+- `user/repo` (assumes github.com)
+</Note>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Create a new worktree
 
-### Step 3: Go live
+Now let's create a worktree for a new feature branch:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+```zsh
+repo wt add feature-auth
+```
+
+Repo Manager creates a new branch from the default branch, sets up the worktree, and changes into it:
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/
+├── .git
+├── main/
+└── feature-auth/    # new worktree (you're here)
+```
+
+You're now in an isolated directory for the `feature-auth` branch. Make commits, run builds, do whatever you need—it won't affect your `main/` worktree.
+
+<Tip>
+If the branch already exists on the remote, `repo wt add` will check it out. If it doesn't exist, a new branch is created.
+</Tip>
+
+## Switch between worktrees
+
+Switch to a different worktree with `repo wt go`:
+
+```zsh
+repo wt go main
+# Now in main/ worktree
+
+repo wt go feature-auth
+# Back in feature-auth/ worktree
+```
+
+No stashing, no checkout conflicts. Just instant context switching.
+
+### List all worktrees
+
+See all worktrees for the current repository:
+
+```zsh
+repo wt list
+```
+
+Output:
+
+```
+worktree /home/user/repos/github.com/user/repo/.bare
+bare
+
+worktree /home/user/repos/github.com/user/repo/main
+HEAD detached at 1a2b3c4
+
+worktree /home/user/repos/github.com/user/repo/feature-auth
+HEAD detached at 5d6e7f8
+```
+
+## Navigate to a repository from anywhere
+
+Use `repo goto` to jump to any repository from anywhere in your system:
+
+```zsh
+repo goto user/repo
+```
+
+If the repository has multiple worktrees and you have `fzf` installed, you'll get an interactive picker. Otherwise, you'll go to the default branch worktree.
+
+<Note>
+You can use partial paths with `repo goto`. For example, `repo goto myapp` will navigate to `github.com/user/myapp` if it exists.
+</Note>
+
+## Review a pull request
+
+One of Repo Manager's most powerful features is effortless PR review. Let's review PR #42:
+
+```zsh
+repo wt pr 42
+```
+
+Repo Manager:
+1. Fetches the PR branch using GitHub CLI
+2. Creates a worktree for it
+3. Changes into the worktree
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/
+├── .git
+├── main/
+├── feature-auth/
+└── fix-bug-in-auth/    # PR #42 branch (you're here)
+```
+
+Review the code, run tests, make comments. When you're done:
+
+```zsh
+repo wt rm fix-bug-in-auth
+```
+
+The PR worktree is removed, and you're back to your previous work.
+
+<Warning>
+The `repo wt pr` command requires the GitHub CLI (`gh`) to be installed and authenticated. See the [installation guide](/installation#gh-github-cli) for setup instructions.
+</Warning>
+
+### Complete PR review workflow
+
+Here's a realistic PR review scenario:
+
+```zsh
+# You're working on feature-auth worktree
+cd ~/repos/github.com/user/repo/feature-auth
+
+# Request comes in to review PR #42
+repo wt pr 42              # creates worktree, cd's into it
+npm install                # install dependencies
+npm test                   # run tests
+npm run dev                # test the feature locally
+
+# Leave feedback on GitHub, approve the PR
+gh pr review 42 --approve -b "LGTM!"
+
+# Clean up the PR worktree
+repo wt rm fix-bug-in-auth
+
+# Back to your feature work
+repo wt go feature-auth
+```
+
+No stashing, no lost context, no friction.
+
+## Clean up worktrees
+
+After reviewing multiple PRs, you might have several worktrees. Clean up all except the default branch:
+
+```zsh
+repo wt clean
+```
+
+This removes all worktrees except `main/` (or whatever your default branch is).
+
+To remove a single worktree:
+
+```zsh
+repo wt rm feature-auth
+```
+
+<Note>
+You cannot remove the default branch worktree. `repo wt rm main` will fail with an error.
+</Note>
+
+## Common workflows
+
+### Parallel development
+
+Work on multiple features simultaneously:
+
+```zsh
+repo wt add feature-auth
+repo wt add feature-payments
+repo wt add feature-dashboard
+
+# In one terminal
+cd ~/repos/github.com/user/repo/feature-auth
+npm run dev
+
+# In another terminal
+cd ~/repos/github.com/user/repo/feature-payments
+npm test --watch
+
+# In another terminal
+cd ~/repos/github.com/user/repo/feature-dashboard
+code .
+```
+
+Each worktree is independent. Run different servers, different builds, different branches—all at once.
+
+### Working with existing repositories
+
+If you already have repositories cloned the standard way, convert them:
+
+```zsh
+cd ~/existing-repo
+repo convert
+```
+
+This converts your repository to the bare + worktree layout without losing any work.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+You now know the basics of Repo Manager. Here are some areas to explore:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Commands reference" icon="terminal" href="/commands/overview">
+    Complete reference for all repo commands
+  </Card>
+  <Card title="Worktree management" icon="code-branch" href="/worktree/overview">
+    Advanced worktree workflows and techniques
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/base-directory">
+    Customize hooks, aliases, and environment variables
+  </Card>
+  <Card title="Migration guide" icon="arrows-turn-right" href="/guides/migrating-existing-repos">
+    Convert existing repositories to worktree layout
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

@@ -1,0 +1,234 @@
+---
+title: Dependencies
+description: Required and optional dependencies for Repo Manager
+---
+
+## Required Dependencies
+
+### ZSH
+
+Repo Manager requires ZSH (Z Shell) version 5.0 or later.
+
+**Check your version:**
+
+```bash
+zsh --version
+```
+
+**Install ZSH:**
+
+<Tabs>
+  <Tab title="macOS">
+    ZSH is pre-installed on macOS. To upgrade:
+    
+    ```bash
+    brew install zsh
+    ```
+  </Tab>
+  
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    sudo apt update
+    sudo apt install zsh
+    ```
+  </Tab>
+  
+  <Tab title="Fedora/RHEL">
+    ```bash
+    sudo dnf install zsh
+    ```
+  </Tab>
+  
+  <Tab title="Arch Linux">
+    ```bash
+    sudo pacman -S zsh
+    ```
+  </Tab>
+</Tabs>
+
+**Set as default shell:**
+
+```bash
+chsh -s $(which zsh)
+```
+
+Log out and back in for the change to take effect.
+
+## Optional Dependencies
+
+Optional dependencies enable additional features. Repo Manager works without them but with reduced functionality.
+
+### fzf (Fuzzy Finder)
+
+**Enables:** Interactive worktree picker
+
+**Feature:** When you run `repo goto` on a repository with multiple worktrees, fzf provides an interactive menu to select which worktree to navigate to.
+
+**Without fzf:** Repo Manager defaults to the main branch worktree without prompting.
+
+**Install fzf:**
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    brew install fzf
+    ```
+  </Tab>
+  
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    sudo apt install fzf
+    ```
+  </Tab>
+  
+  <Tab title="Fedora/RHEL">
+    ```bash
+    sudo dnf install fzf
+    ```
+  </Tab>
+  
+  <Tab title="Arch Linux">
+    ```bash
+    sudo pacman -S fzf
+    ```
+  </Tab>
+  
+  <Tab title="Git (any platform)">
+    ```bash
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install
+    ```
+  </Tab>
+</Tabs>
+
+**Check installation:**
+
+```bash
+fzf --version
+```
+
+---
+
+### gh CLI (GitHub CLI)
+
+**Enables:** PR worktree creation
+
+**Feature:** The `repo wt pr <number>` command requires gh CLI to fetch pull request information and create worktrees for reviewing PRs.
+
+**Without gh CLI:** The `repo wt pr` command will not work, but all other worktree operations remain functional.
+
+**Install gh CLI:**
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    brew install gh
+    ```
+  </Tab>
+  
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update
+    sudo apt install gh
+    ```
+  </Tab>
+  
+  <Tab title="Fedora/RHEL">
+    ```bash
+    sudo dnf install gh
+    ```
+  </Tab>
+  
+  <Tab title="Arch Linux">
+    ```bash
+    sudo pacman -S github-cli
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    ```bash
+    winget install --id GitHub.cli
+    ```
+  </Tab>
+</Tabs>
+
+**Authenticate with GitHub:**
+
+```bash
+gh auth login
+```
+
+Follow the prompts to authenticate.
+
+**Check installation:**
+
+```bash
+gh --version
+```
+
+## Feature Availability Matrix
+
+| Feature | Required Dependencies | Optional Dependencies |
+|---------|----------------------|----------------------|
+| Clone repositories | ZSH | - |
+| Create new repositories | ZSH | - |
+| Navigate to repositories | ZSH | - |
+| List repositories | ZSH | - |
+| Basic worktree operations | ZSH | - |
+| Interactive worktree picker | ZSH | fzf |
+| PR worktrees | ZSH | gh CLI |
+
+## Verification Script
+
+Check which dependencies are installed:
+
+```bash
+echo "Required:"
+echo "  ZSH: $(zsh --version 2>/dev/null || echo 'NOT INSTALLED')"
+echo ""
+echo "Optional:"
+echo "  fzf: $(fzf --version 2>/dev/null || echo 'not installed')"
+echo "  gh:  $(gh --version 2>/dev/null | head -n1 || echo 'not installed')"
+```
+
+## Troubleshooting
+
+### Command not found after installation
+
+If a dependency doesn't work after installation:
+
+1. Restart your terminal or run `source ~/.zshrc`
+2. Check if the binary is in your PATH:
+   ```bash
+   which fzf
+   which gh
+   ```
+3. If not in PATH, add the installation directory to PATH in `.zshrc`
+
+### fzf not appearing in repo goto
+
+Even with fzf installed, the picker only appears when:
+- You're in a repository with multiple worktrees
+- fzf is available in PATH
+
+Test fzf availability:
+
+```bash
+command -v fzf >/dev/null 2>&1 && echo "fzf available" || echo "fzf not found"
+```
+
+### gh CLI authentication issues
+
+If `repo wt pr` fails with authentication errors:
+
+1. Re-authenticate:
+   ```bash
+   gh auth login
+   ```
+2. Check authentication status:
+   ```bash
+   gh auth status
+   ```
+3. Ensure you have access to the repository

@@ -1,0 +1,360 @@
+---
+title: repo wt clean
+description: Remove all worktrees except the default branch
+---
+
+Batch remove all worktrees except the default branch, useful for cleaning up completed work.
+
+## Syntax
+
+```bash
+repo wt clean
+```
+
+## Arguments
+
+This command takes no arguments.
+
+## Behavior
+
+The `clean` command performs batch cleanup with safety protections:
+
+### 1. Repository and Default Branch Detection
+
+- Locates the repository root
+- Accesses the bare repository at `.bare/`
+- Detects the default branch (main/master) automatically
+
+Source: `functions/worktree.zsh:179-183`
+
+### 2. Worktree Discovery
+
+Retrieves all worktrees using porcelain format:
+- Queries Git for complete worktree list
+- Parses worktree information line by line
+- Processes each worktree for potential removal
+
+Source: `functions/worktree.zsh:185-187`
+
+### 3. Worktree Filtering
+
+For each worktree, applies protection rules:
+
+**Skip Bare Repository**
+- The `.bare/` directory itself is a "worktree" in Git's view
+- Never attempts to remove the bare repository
+- Continues to next worktree
+
+Source: `functions/worktree.zsh:190-192`
+
+**Skip Default Branch**
+- Identifies worktree by directory basename
+- If basename matches default branch name, skips it
+- Ensures default branch worktree is always preserved
+
+Source: `functions/worktree.zsh:193-196`
+
+### 4. Removal Attempt
+
+For worktrees not skipped:
+- Displays message indicating removal attempt
+- Executes `git worktree remove` on the path
+- Suppresses error output to keep display clean
+
+Source: `functions/worktree.zsh:197-198`
+
+### 5. Error Handling
+
+If removal fails:
+- Displays warning (does not abort the command)
+- Indicates the worktree may have uncommitted changes
+- Continues processing remaining worktrees
+
+Source: `functions/worktree.zsh:199-201`
+
+### 6. Cleanup and Verification
+
+After processing all worktrees:
+- Runs `git worktree prune` to clean up stale references
+- Displays remaining worktrees with `repo wt list`
+- Shows final state of the repository
+
+Source: `functions/worktree.zsh:205-208`
+
+## Examples
+
+### Clean All Feature Branches
+
+```bash
+# Before clean
+repo wt list
+# Output:
+# /path/to/repo/.bare           (bare)
+# /path/to/repo/main            abc1234 [main]
+# /path/to/repo/feature-a       def5678 [feature-a]
+# /path/to/repo/feature-b       ghi9012 [feature-b]
+# /path/to/repo/fix-bug         jkl3456 [fix-bug]
+
+repo wt clean
+# Output:
+# Removing worktree: /path/to/repo/feature-a
+# Removing worktree: /path/to/repo/feature-b
+# Removing worktree: /path/to/repo/fix-bug
+# Clean complete. Remaining worktrees:
+# /path/to/repo/.bare           (bare)
+# /path/to/repo/main            abc1234 [main]
+```
+
+Source: `functions/worktree.zsh:197-208`
+
+### Clean with Protected Worktrees
+
+```bash
+# One worktree has uncommitted changes
+repo wt clean
+
+# Output:
+# Removing worktree: /path/to/repo/feature-a
+# Removing worktree: /path/to/repo/feature-b
+#   Warning: Could not remove /path/to/repo/feature-b (may have uncommitted changes)
+# Removing worktree: /path/to/repo/fix-bug
+# Clean complete. Remaining worktrees:
+# /path/to/repo/.bare           (bare)
+# /path/to/repo/main            abc1234 [main]
+# /path/to/repo/feature-b       ghi9012 [feature-b]
+```
+
+Worktrees with uncommitted changes are preserved.
+
+Source: `functions/worktree.zsh:199-201`
+
+### Post-Sprint Cleanup
+
+```bash
+# After merging all feature branches
+git checkout main
+git pull
+
+# Clean up all feature worktrees at once
+repo wt clean
+
+# Only main worktree remains
+```
+
+### Verify Before Cleaning
+
+```bash
+# Check what will be removed
+repo wt list
+
+# Run clean
+repo wt clean
+
+# Verify results
+repo wt list
+```
+
+## What Gets Removed?
+
+The `clean` command removes:
+
+- All feature branch worktrees
+- All bugfix branch worktrees
+- PR review worktrees
+- Any non-default branch worktrees
+
+**Never removes:**
+- The bare repository (`.bare/`)
+- The default branch worktree (main/master)
+- Worktrees with uncommitted changes (protected by Git)
+
+## Error Cases
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt clean
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+Source: `functions/worktree.zsh:179-180`
+
+### Worktrees with Uncommitted Changes
+
+```bash
+repo wt clean
+
+# Output:
+# Removing worktree: /path/to/repo/feature-a
+#   Warning: Could not remove /path/to/repo/feature-a (may have uncommitted changes)
+```
+
+Git prevents removal of worktrees with uncommitted changes to protect your work.
+
+**Solutions:**
+1. Commit changes: `cd <worktree> && git commit -am "Save work"`
+2. Stash changes: `cd <worktree> && git stash`
+3. Remove manually with force: `repo wt rm <branch>` then force remove if needed
+
+Source: `functions/worktree.zsh:199-201`
+
+### No Worktrees to Clean
+
+If only the default branch exists:
+
+```bash
+repo wt clean
+
+# Output:
+# Clean complete. Remaining worktrees:
+# /path/to/repo/.bare           (bare)
+# /path/to/repo/main            abc1234 [main]
+```
+
+This is not an error - the command completes successfully with nothing to remove.
+
+## Tips and Best Practices
+
+### When to Use Clean
+
+Ideal times to clean worktrees:
+- After completing a sprint or milestone
+- After merging multiple feature branches
+- Before starting new work
+- When switching between major project phases
+- Periodically to free up disk space
+
+### Safe by Default
+
+The command is designed to be safe:
+- Cannot remove default branch
+- Cannot remove worktrees with uncommitted work
+- Continues on errors rather than aborting
+- Shows what remains after cleaning
+
+### Commit Before Cleaning
+
+For maximum cleanup, ensure all worktrees have clean state:
+
+```bash
+# Check each worktree for uncommitted changes
+repo wt list | while read -r wt; do
+  cd "$wt" && git status --short
+done
+
+# Commit or stash as needed
+
+# Then clean
+repo wt clean
+```
+
+### Selective Removal
+
+If you want to keep some worktrees:
+
+```bash
+# Use 'repo wt rm' for selective removal instead
+repo wt rm feature-a
+repo wt rm feature-b
+# feature-c remains
+```
+
+### Default Branch Detection
+
+The command automatically detects:
+- `main` or `master` as default
+- Uses Git's `HEAD` reference on origin
+- Respects your repository's convention
+
+Source: `functions/worktree.zsh:182-183`
+
+### Post-Clean Actions
+
+After cleaning, the command:
+- Runs `git worktree prune` to remove stale administrative data
+- Displays remaining worktrees for verification
+- Ensures your repository state is clean and consistent
+
+Source: `functions/worktree.zsh:205-208`
+
+### Disk Space Recovery
+
+Cleaning worktrees frees disk space:
+- Removes working directory files
+- Keeps Git history (in bare repo)
+- Each worktree can be several hundred MB
+- Useful for large codebases
+
+### Integration with Git Workflow
+
+Common workflow pattern:
+
+```bash
+# Create worktrees for features
+repo wt add feature-a
+repo wt add feature-b
+repo wt add feature-c
+
+# Work on features...
+
+# Merge all to main
+repo wt go main
+gh pr merge 101
+gh pr merge 102
+gh pr merge 103
+
+# Clean up all feature worktrees
+repo wt clean
+```
+
+### Manual Override
+
+If you need to force remove a worktree with changes:
+
+```bash
+# Navigate to the worktree
+cd /path/to/worktree
+
+# Force remove (WARNING: loses uncommitted changes)
+git worktree remove --force .
+```
+
+Use with extreme caution - this will delete uncommitted work.
+
+### Verification
+
+Always verify the clean results:
+
+```bash
+repo wt clean
+
+# Output shows remaining worktrees automatically
+# Verify this matches expectations
+```
+
+The command displays remaining worktrees, so you can immediately see the result.
+
+### Alternative to Clean
+
+For more control:
+
+```bash
+# List all worktrees
+repo wt list
+
+# Remove each one individually
+repo wt rm feature-a
+repo wt rm feature-b
+
+# Provides more control over what gets removed
+```
+
+## See Also
+
+- [repo wt rm](/worktree/rm) - Remove a specific worktree
+- [repo wt list](/worktree/list) - View all worktrees
+- [repo wt add](/worktree/add) - Create new worktrees
+- [Worktree Overview](/worktree/overview) - Understanding worktrees

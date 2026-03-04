@@ -1,0 +1,150 @@
+---
+title: Worktree Workflow
+description: Understanding the worktree-first approach to repository management
+---
+
+## What Are Git Worktrees?
+
+Git worktrees allow you to have multiple working directories attached to a single repository. Instead of switching branches in place (which requires stashing or committing work-in-progress), each branch lives in its own directory.
+
+## How Repo Manager Uses Worktrees
+
+Repo Manager takes a **worktree-first** approach by combining:
+
+1. **Bare repositories** - The git metadata lives in a `.bare/` directory
+2. **Multiple worktrees** - Each branch becomes a subdirectory
+
+When you clone a repository with `repo get`, the structure looks like:
+
+```
+github.com/user/repo/
+├── .bare/            # bare git repository (all git metadata)
+├── .git              # file pointing to .bare
+├── main/             # worktree for default branch
+├── feature-auth/     # worktree for feature branch
+└── pr-123/           # worktree for reviewing a PR
+```
+
+## Benefits Over Standard Git Workflow
+
+### No Stashing Required
+
+With standard git checkout:
+```zsh
+git checkout main              # Error: uncommitted changes
+git stash                      # Save work
+git checkout feature-branch    # Switch
+git stash pop                  # Restore work later
+```
+
+With worktrees:
+```zsh
+repo wt go main               # Instant switch, no stashing
+repo wt go feature-branch     # Work preserved in each directory
+```
+
+### Parallel Work
+
+Run builds, tests, or servers in multiple branches simultaneously:
+```zsh
+# Terminal 1: main branch
+cd ~/repos/github.com/user/repo/main
+npm run dev
+
+# Terminal 2: feature branch
+cd ~/repos/github.com/user/repo/feature-auth
+npm test --watch
+```
+
+### Instant Context Switching
+
+No checkout delays, no modified file tracking - just `cd` between directories:
+```zsh
+repo wt go main              # Switch to main
+repo wt go feature-auth      # Switch to feature
+```
+
+## Common Workflows
+
+### Starting New Work
+
+```zsh
+repo get github.com/user/repo    # Clone with bare + main worktree
+repo wt add feature-auth         # Create worktree for new branch
+# Work on feature-auth/
+repo wt go main                  # Switch back to main when needed
+```
+
+### Reviewing Pull Requests
+
+```zsh
+repo wt pr 42                    # Fetch PR #42, create worktree
+# Review code in pr-branch/
+repo wt rm pr-branch             # Clean up when done
+```
+
+Or use `repo wt clean` to remove all worktrees except the default branch:
+```zsh
+repo wt clean                    # Remove all non-default worktrees
+```
+
+### Working on Multiple Features
+
+```zsh
+repo wt add feature-a
+repo wt add feature-b
+repo wt add hotfix-crash
+
+repo wt list                     # See all worktrees
+repo wt go feature-a             # Switch between them
+```
+
+### Converting Existing Repositories
+
+Migrate standard clones to worktree layout:
+```zsh
+cd ~/repos/github.com/user/repo
+repo convert                     # Converts to bare + worktree
+```
+
+The conversion process:
+1. Moves `.git/` to `.bare/`
+2. Creates `.git` file pointing to `.bare`
+3. Moves all files into a branch-named subdirectory
+4. Registers the worktree with git
+
+See functions/convert.zsh:29-62 for implementation details.
+
+## Navigation Shortcuts
+
+Repo Manager provides navigation commands for quick access:
+
+```zsh
+repo goto user/repo              # Jump to repository from anywhere
+```
+
+If multiple worktrees exist and `fzf` is installed, you'll get an interactive picker. Otherwise, it navigates to the default branch worktree.
+
+See functions/goto.zsh:18-51 for picker implementation.
+
+## Technical Details
+
+### Bare Repository Configuration
+
+When cloning, Repo Manager:
+- Creates a bare clone in `.bare/` (functions/clone.zsh:34)
+- Configures fetch refspec: `+refs/heads/*:refs/remotes/origin/*` (functions/clone.zsh:42)
+- Creates initial worktree for default branch (functions/clone.zsh:47)
+- Sets upstream tracking automatically (functions/clone.zsh:52)
+
+### Worktree Creation
+
+When adding a worktree with `repo wt add <branch>`:
+1. Fetches latest from origin (functions/worktree.zsh:39)
+2. Checks if branch exists remotely or locally (functions/worktree.zsh:41-46)
+3. Creates new branch from default if not found (functions/worktree.zsh:49)
+4. Sets upstream tracking (functions/worktree.zsh:43)
+
+### Repository Root Resolution
+
+Repo Manager finds the repository root by walking up directories looking for `.bare/` (functions/core.zsh:16-27). This allows commands to work from any subdirectory within a worktree.

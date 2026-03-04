@@ -1,0 +1,496 @@
+---
+title: Multi-Branch Development
+description: Work on multiple features and contexts simultaneously with worktrees
+---
+
+## Overview
+
+Worktrees enable true parallel development by allowing you to work on multiple branches simultaneously without constant context switching. Each worktree is an independent working directory with its own branch checked out.
+
+## Why Use Multiple Worktrees?
+
+### Traditional Git Problems
+
+With standard Git, switching branches disrupts your workflow:
+
+```bash
+# Working on feature A
+git checkout feature-a
+vim src/feature-a.js
+npm test  # tests running...
+
+# Urgent bugfix needed
+git stash
+git checkout main
+git checkout -b bugfix
+# Fix bug, commit, push
+
+# Back to feature A
+git checkout feature-a
+git stash pop
+# Wait, what was I doing?
+```
+
+### The Worktree Solution
+
+With worktrees, each branch has its own directory:
+
+```bash
+# Working on feature A
+cd feature-a
+vim src/feature-a.js
+npm test  # tests running...
+
+# Urgent bugfix needed (in new terminal)
+repo wt add bugfix
+cd bugfix
+# Fix bug, commit, push
+
+# Feature A is still running tests!
+# No stashing, no context loss
+```
+
+## Working on Multiple Features Simultaneously
+
+### Create Feature Worktrees
+
+```bash
+# Start multiple features
+repo wt add feature-user-auth
+repo wt add feature-dashboard
+repo wt add feature-analytics
+
+# List all worktrees
+repo wt list
+```
+
+You'll see:
+
+```
+/path/to/repo/.bare        (bare)
+/path/to/repo/main         abc123 [main]
+/path/to/repo/feature-user-auth    def456 [feature-user-auth]
+/path/to/repo/feature-dashboard    ghi789 [feature-dashboard]
+/path/to/repo/feature-analytics    jkl012 [feature-analytics]
+```
+
+### Navigate Between Features
+
+```bash
+# Open each in your editor
+code /path/to/repo/feature-user-auth
+code /path/to/repo/feature-dashboard
+code /path/to/repo/feature-analytics
+
+# Or use terminal navigation
+repo wt go feature-user-auth
+```
+
+### Parallel Development Workflow
+
+```bash
+# Terminal 1: Feature development
+cd feature-user-auth
+vim src/auth/login.js
+npm run dev  # Dev server running
+
+# Terminal 2: Another feature
+cd feature-dashboard
+vim src/dashboard/stats.js
+npm test -- --watch  # Tests running
+
+# Terminal 3: Code review
+repo wt pr 123
+cd pr-branch
+npm test
+
+# Terminal 4: Main branch ready for hotfixes
+cd main
+# Always clean and up-to-date
+```
+
+## Using Worktrees for Different Contexts
+
+Organize worktrees by type and purpose:
+
+### Feature Development
+
+```bash
+repo wt add feature-payment-integration
+repo wt add feature-email-notifications
+repo wt add feature-admin-panel
+```
+
+Use naming convention: `feature-<description>`
+
+### Bug Fixes
+
+```bash
+repo wt add bugfix-login-timeout
+repo wt add bugfix-memory-leak
+repo wt add hotfix-security-patch
+```
+
+Use naming convention: `bugfix-<description>` or `hotfix-<description>`
+
+### Experiments and Prototypes
+
+```bash
+repo wt add experiment-new-architecture
+repo wt add prototype-ui-redesign
+repo wt add spike-performance-optimization
+```
+
+Use naming convention: `experiment-<description>` or `spike-<description>`
+
+### Documentation
+
+```bash
+repo wt add docs-api-reference
+repo wt add docs-user-guide
+```
+
+Use naming convention: `docs-<description>`
+
+### Release Preparation
+
+```bash
+repo wt add release-v2.0
+repo wt add release-notes-v2.0
+```
+
+Use naming convention: `release-<version>`
+
+## Organizing Worktrees by Type
+
+### Directory Structure Example
+
+```
+my-project/
+├── .bare/                          # Bare repository
+├── .git                            # Points to .bare
+├── main/                           # Main branch
+├── feature-user-auth/              # Feature worktree
+├── feature-dashboard/              # Feature worktree
+├── bugfix-login-timeout/           # Bugfix worktree
+├── experiment-new-architecture/    # Experiment worktree
+└── pr-123-add-search/              # PR review worktree
+```
+
+### List by Type
+
+```bash
+# List all worktrees
+repo wt list
+
+# Filter in shell
+repo wt list | grep feature
+repo wt list | grep bugfix
+repo wt list | grep experiment
+```
+
+### Navigate by Pattern
+
+```bash
+# Find and go to feature worktrees
+ls -d feature-* | head -1 | xargs repo wt go
+
+# Open all feature worktrees in editor
+code feature-*
+```
+
+## Managing Many Worktrees Effectively
+
+### Keep Track of Active Work
+
+List worktrees with their status:
+
+```bash
+# See all worktrees
+repo wt list
+
+# Check status of each
+for dir in feature-*; do
+  echo "\n=== $dir ==="
+  git -C "$dir" status -s
+done
+```
+
+### Sync All Worktrees
+
+Update all worktrees with latest changes:
+
+```bash
+# Fetch all remotes
+git --git-dir=.bare fetch --all
+
+# Update each worktree
+for dir in */; do
+  if [[ -d "$dir/.git" ]]; then
+    echo "Updating $dir"
+    git -C "$dir" pull --rebase
+  fi
+done
+```
+
+### Monitor Resource Usage
+
+Worktrees share the same Git objects, saving space:
+
+```bash
+# Check disk usage
+du -sh .bare      # Git objects (shared)
+du -sh feature-*  # Working trees (per-worktree)
+
+# Total space used
+du -sh .
+```
+
+### Set Limits
+
+Avoid creating too many worktrees:
+
+- **Recommended:** 5-10 active worktrees
+- **Maximum:** 20-30 worktrees
+- Beyond this, tracking becomes difficult
+
+## When to Clean Up with `repo wt clean`
+
+The `repo wt clean` command removes all non-main worktrees.
+
+### When to Use Clean
+
+**End of sprint:**
+```bash
+# After sprint review, clean up finished features
+repo wt clean
+```
+
+**After release:**
+```bash
+# Remove release preparation branches
+repo wt clean
+```
+
+**Too many worktrees:**
+```bash
+# When you have >10 worktrees and lose track
+repo wt clean
+```
+
+**Starting fresh:**
+```bash
+# Clean slate for new work
+repo wt clean
+repo wt add new-feature
+```
+
+### What Clean Does
+
+From functions/worktree.zsh:178-209, `repo wt clean`:
+
+1. Lists all worktrees
+2. Identifies the default branch (main/master)
+3. Attempts to remove all other worktrees
+4. Skips worktrees with uncommitted changes
+5. Prunes stale worktree references
+6. Shows remaining worktrees
+
+### Clean Example
+
+```bash
+$ repo wt clean
+Removing worktree: /path/to/repo/feature-a
+Removing worktree: /path/to/repo/feature-b
+Warning: Could not remove /path/to/repo/feature-c (may have uncommitted changes)
+Removing worktree: /path/to/repo/experiment-x
+Clean complete. Remaining worktrees:
+/path/to/repo/.bare        (bare)
+/path/to/repo/main         abc123 [main]
+/path/to/repo/feature-c    def456 [feature-c]
+```
+
+### Before Running Clean
+
+Check for uncommitted work:
+
+```bash
+# See status of all worktrees
+for dir in */; do
+  if [[ -d "$dir/.git" ]]; then
+    echo "\n=== $dir ==="
+    git -C "$dir" status -s
+  fi
+done
+```
+
+Commit or stash changes first:
+
+```bash
+cd feature-a
+git add .
+git commit -m "WIP: Save progress"
+git push
+
+# Now safe to clean
+cd ..
+repo wt clean
+```
+
+### Selective Cleanup
+
+If you want to keep some worktrees, remove individually:
+
+```bash
+# Keep main and feature-a, remove others
+repo wt rm feature-b
+repo wt rm experiment-x
+repo wt rm bugfix-old
+
+# Or use clean and recreate what you need
+repo wt clean
+repo wt add feature-a  # Recreate important work
+```
+
+## Best Practices
+
+### 1. Use Descriptive Names
+
+Good names make worktrees easy to identify:
+
+```bash
+# Good
+repo wt add feature-oauth-integration
+repo wt add bugfix-cart-calculation
+repo wt add docs-deployment-guide
+
+# Bad
+repo wt add test
+repo wt add fix
+repo wt add branch1
+```
+
+### 2. Keep Main Branch Clean
+
+Never work directly in the main worktree:
+
+```bash
+# Good: Create worktree for new work
+repo wt add feature-new-thing
+cd feature-new-thing
+
+# Bad: Work directly in main
+cd main
+git checkout -b feature  # Don't do this
+```
+
+### 3. Delete Merged Branches
+
+After merging, clean up:
+
+```bash
+# After PR merged
+repo wt rm feature-oauth
+
+# Delete remote branch too
+git push origin --delete feature-oauth
+```
+
+### 4. Regular Maintenance
+
+Schedule cleanup:
+
+```bash
+# Weekly: Review and clean
+repo wt list
+# Identify stale worktrees
+repo wt rm old-feature
+repo wt rm abandoned-experiment
+
+# Monthly: Full clean
+repo wt clean
+```
+
+### 5. Document Active Work
+
+Keep track of what each worktree is for:
+
+```bash
+# In each worktree, create a TODO or NOTES file
+cd feature-a
+echo "Working on OAuth integration" > NOTES.md
+echo "TODO: Add tests" >> NOTES.md
+```
+
+### 6. Use Shell Aliases
+
+Create shortcuts for common operations:
+
+```bash
+# In your .zshrc or .bashrc
+alias wtl='repo wt list'
+alias wtc='repo wt clean'
+alias wta='repo wt add'
+alias wtg='repo wt go'
+
+# Usage
+wtl              # List worktrees
+wta feature-x    # Add worktree
+wtg feature-x    # Navigate to worktree
+```
+
+## Real-World Workflows
+
+### Full-Stack Development
+
+```bash
+# Backend work
+repo wt add feature-api-endpoint
+cd feature-api-endpoint
+code .
+npm run dev  # Backend server
+
+# Frontend work (parallel)
+repo wt add feature-ui-component
+cd feature-ui-component
+code .
+npm start  # Frontend dev server
+
+# Both running simultaneously!
+```
+
+### Code Review While Developing
+
+```bash
+# Continue your feature work
+cd feature-dashboard
+npm run dev  # Still running
+
+# Review PR in separate worktree
+repo wt pr 456
+cd pr-branch
+npm test
+gh pr review 456 --approve
+
+# Back to feature work - nothing disrupted
+repo wt go feature-dashboard
+```
+
+### Release Management
+
+```bash
+# Prepare release
+repo wt add release-v2.0
+cd release-v2.0
+# Update version, changelog
+
+# Continue development on main
+cd main
+git pull
+# Keep working on v2.1 features
+
+# Hotfix for v2.0 if needed
+repo wt add hotfix-v2.0.1
+cd hotfix-v2.0.1
+# Fix critical bug
+```

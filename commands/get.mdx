@@ -1,0 +1,134 @@
+---
+title: repo get
+description: Clone repositories with bare + worktree layout
+---
+
+## Syntax
+
+```bash
+repo get <repository-url>
+```
+
+## Description
+
+The `repo get` command clones a Git repository using a bare + worktree layout. This approach stores all Git data in a `.bare` directory and creates worktrees in separate subdirectories for each branch.
+
+### How It Works
+
+1. Cleans and normalizes the repository URL
+2. Determines the target directory under `$REPO_BASE_DIR`
+3. Performs a bare clone into `.bare` directory
+4. Configures fetch refspecs for the remote
+5. Detects the default branch (typically `main` or `master`)
+6. Creates an initial worktree for the default branch
+7. Sets up upstream tracking
+8. Changes to the worktree directory
+
+## Arguments
+
+<ParamField path="repository-url" type="string" required>
+  The repository to clone. Supports multiple URL formats:
+  - Full URLs: `https://github.com/user/repo.git`
+  - SSH URLs: `git@github.com:user/repo.git`
+  - Short form: `github.com/user/repo`
+  - GitHub shorthand: `user/repo` (automatically expands to `github.com/user/repo`)
+</ParamField>
+
+## Examples
+
+### Clone from GitHub (full URL)
+
+```bash
+repo get https://github.com/torvalds/linux
+```
+
+Clones to `$REPO_BASE_DIR/github.com/torvalds/linux/` with the default branch worktree at `$REPO_BASE_DIR/github.com/torvalds/linux/main/`
+
+### Clone from GitHub (short form)
+
+```bash
+repo get torvalds/linux
+```
+
+Automatically expands to `github.com/torvalds/linux` and clones the repository.
+
+### Clone from GitLab
+
+```bash
+repo get gitlab.com/gitlab-org/gitlab
+```
+
+### Clone using SSH URL
+
+```bash
+repo get git@github.com:user/private-repo.git
+```
+
+## Behavior
+
+### Repository Already Exists
+
+If the repository already exists:
+
+**Worktree layout** (`.bare` directory present):
+```
+Repository already exists (worktree layout): /path/to/repo
+```
+The command will navigate to the repository without re-cloning.
+
+**Standard layout** (`.git` directory present):
+```
+Repository already exists (standard layout): /path/to/repo
+Use 'repo convert' to migrate to worktree layout.
+```
+The command will navigate to the repository and suggest using `repo convert`.
+
+### Directory Structure
+
+After cloning, the repository structure looks like:
+
+```
+github.com/user/repo/
+├── .bare/              # Bare repository (all Git data)
+├── .git                # File pointing to .bare
+└── main/               # Worktree for default branch
+    ├── .git            # File linking to .bare/worktrees/main
+    └── ...             # Working files
+```
+
+## Related Commands
+
+- [repo goto](/commands/goto) - Navigate to a cloned repository
+- [repo convert](/commands/convert) - Convert existing repositories to worktree layout
+- [repo list](/commands/list) - List all cloned repositories
+
+## Common Use Cases
+
+### Clone and start working
+
+```bash
+repo get user/project
+# Automatically navigates to the default branch worktree
+```
+
+### Clone multiple repositories
+
+```bash
+repo get facebook/react
+repo get vuejs/vue
+repo get angular/angular
+```
+
+All repositories are organized under `$REPO_BASE_DIR` by their hosting domain and path.
+
+## Implementation Details
+
+Source code: `functions/clone.zsh:1`
+
+The command uses `git clone --bare` followed by `git worktree add` to set up the repository structure. It automatically configures the fetch refspec with:
+
+```bash
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+```
+
+This ensures that `git fetch` will update all remote branches correctly in the bare repository.

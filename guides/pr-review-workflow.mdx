@@ -1,0 +1,387 @@
+---
+title: PR Review Workflow
+description: Review pull requests efficiently using dedicated worktrees
+---
+
+## Overview
+
+Repo Manager streamlines PR reviews by creating dedicated worktrees for each pull request. This allows you to review code, run tests, and make changes without disrupting your main development workflow.
+
+## Prerequisites
+
+### Install GitHub CLI
+
+The `repo wt pr` command requires the GitHub CLI (`gh`):
+
+```bash
+# macOS
+brew install gh
+
+# Linux
+sudo apt install gh  # Debian/Ubuntu
+sudo dnf install gh  # Fedora
+
+# Windows
+winget install GitHub.cli
+```
+
+### Authenticate with GitHub
+
+```bash
+gh auth login
+```
+
+Follow the prompts to authenticate. You can use:
+- Your browser (recommended)
+- A personal access token
+
+Verify authentication:
+
+```bash
+gh auth status
+```
+
+## Basic PR Review Workflow
+
+### 1. Create a Worktree for the PR
+
+```bash
+repo wt pr 123
+```
+
+This command (from functions/worktree.zsh:122-176):
+
+1. Uses `gh` CLI to fetch PR details
+2. Determines the branch name for the PR
+3. Fetches the PR branch from the remote
+4. Creates a new worktree for that branch
+5. Navigates to the worktree (via hooks)
+
+You'll see output like:
+
+```
+Created worktree for PR #123: /path/to/repo/feature-branch
+```
+
+### 2. Review the Code
+
+Navigate to the worktree and explore:
+
+```bash
+cd feature-branch  # or use repo wt go feature-branch
+```
+
+Review changes:
+
+```bash
+# See what changed from main
+git diff main
+
+# View commits in the PR
+git log main..HEAD
+
+# Check specific files
+code src/modified-file.js
+```
+
+### 3. Test the Changes
+
+Run tests and verify functionality:
+
+```bash
+# Install dependencies if needed
+npm install
+
+# Run tests
+npm test
+
+# Run the application
+npm start
+```
+
+### 4. Leave Feedback
+
+Use GitHub CLI to comment directly from the command line:
+
+```bash
+# View PR details
+gh pr view 123
+
+# Add a comment
+gh pr comment 123 --body "LGTM! Tests pass locally."
+
+# Request changes
+gh pr comment 123 --body "Please add tests for the new feature."
+
+# Approve the PR
+gh pr review 123 --approve
+```
+
+### 5. Clean Up After Review
+
+Once the PR is merged or closed, remove the worktree:
+
+```bash
+repo wt rm feature-branch
+```
+
+This removes the worktree and cleans up disk space.
+
+## Reviewing Multiple PRs in Parallel
+
+One of the key advantages of worktrees is the ability to review multiple PRs simultaneously.
+
+### Create Multiple PR Worktrees
+
+```bash
+repo wt pr 123
+repo wt pr 124
+repo wt pr 125
+```
+
+Each PR gets its own isolated worktree.
+
+### Switch Between Reviews
+
+```bash
+# List all worktrees
+repo wt list
+
+# Navigate to specific PR
+repo wt go feature-a  # PR 123
+repo wt go feature-b  # PR 124
+```
+
+### Parallel Testing
+
+Run tests in different terminals:
+
+```bash
+# Terminal 1
+cd feature-a
+npm test
+
+# Terminal 2
+cd feature-b
+npm test
+
+# Terminal 3
+cd main
+npm test  # Baseline comparison
+```
+
+### Example Multi-PR Workflow
+
+```bash
+# Morning: Create worktrees for all PRs to review
+repo wt pr 101
+repo wt pr 102
+repo wt pr 103
+
+# Review first PR
+cd pr-branch-101
+code .
+# Review code, run tests, leave feedback
+
+# Review second PR without losing first PR context
+repo wt go pr-branch-102
+code .
+# Review code, run tests
+
+# Compare both PRs side by side
+code /path/to/repo/pr-branch-101 /path/to/repo/pr-branch-102
+
+# End of day: Clean up reviewed PRs
+repo wt rm pr-branch-101
+repo wt rm pr-branch-102
+```
+
+## Best Practices for Code Review with Worktrees
+
+### 1. Create PR Worktrees Early
+
+Create worktrees as soon as PRs are ready for review:
+
+```bash
+# Check for PRs awaiting review
+gh pr list --search "review-requested:@me"
+
+# Create worktrees for each
+repo wt pr 123
+repo wt pr 124
+```
+
+### 2. Keep Your Main Branch Clean
+
+Always review PRs in separate worktrees, never on your main branch:
+
+```bash
+# Good: Review in dedicated worktree
+repo wt pr 123
+cd pr-branch
+
+# Bad: Switching branches in main worktree
+cd main
+git checkout pr-branch  # Don't do this
+```
+
+### 3. Run the Full Test Suite
+
+Before approving, ensure all tests pass:
+
+```bash
+cd pr-branch
+npm install  # Fresh dependencies
+npm test     # Run all tests
+npm run lint # Check code style
+npm run build # Verify build succeeds
+```
+
+### 4. Compare with Base Branch
+
+Always check what changed from the base branch:
+
+```bash
+# See all changes
+git diff main...HEAD
+
+# See files changed
+git diff main...HEAD --name-only
+
+# See commit messages
+git log main..HEAD --oneline
+```
+
+### 5. Document Your Review Process
+
+Leave clear, actionable feedback:
+
+```bash
+gh pr comment 123 --body "Tested locally:
+- ✅ Unit tests pass
+- ✅ Integration tests pass
+- ✅ Manual testing in dev environment
+- ⚠️  Found edge case with empty input
+
+Please add validation for empty input."
+```
+
+### 6. Clean Up Regularly
+
+Remove worktrees after PRs are merged:
+
+```bash
+# Check merged PRs
+gh pr list --state merged --limit 10
+
+# Remove old worktrees
+repo wt clean
+```
+
+## Advanced Scenarios
+
+### Making Changes to a PR
+
+If you need to push changes to a PR:
+
+```bash
+repo wt pr 123
+cd pr-branch
+
+# Make changes
+vim src/file.js
+
+# Commit and push
+git add .
+git commit -m "Fix: Handle edge case"
+git push
+```
+
+### Rebasing a PR During Review
+
+If the PR needs to be updated with latest main:
+
+```bash
+cd pr-branch
+git fetch origin
+git rebase origin/main
+# Resolve conflicts if any
+git push --force-with-lease
+```
+
+### Reviewing Draft PRs
+
+Review drafts the same way:
+
+```bash
+repo wt pr 123  # Works for draft PRs too
+cd pr-branch
+# Provide early feedback
+gh pr comment 123 --body "Early feedback: Architecture looks good"
+```
+
+### Comparing Multiple PR Approaches
+
+If there are competing PRs for the same feature:
+
+```bash
+# Create worktrees for both approaches
+repo wt pr 123  # Approach A
+repo wt pr 124  # Approach B
+
+# Compare implementations
+diff -u approach-a/src/feature.js approach-b/src/feature.js
+
+# Test both approaches
+cd approach-a && npm test
+cd approach-b && npm test
+```
+
+## Troubleshooting
+
+### "gh CLI is required" Error
+
+**Solution:** Install and authenticate with GitHub CLI:
+
+```bash
+brew install gh
+gh auth login
+```
+
+### "Could not determine branch for PR" Error
+
+**Problem:** The PR number doesn't exist or you don't have access.
+
+**Solution:** Verify the PR exists:
+
+```bash
+gh pr view 123
+```
+
+### PR Branch Already Exists
+
+If the worktree already exists:
+
+```
+Worktree for PR #123 (feature-branch) already exists
+```
+
+**Solution:** Navigate to existing worktree or remove and recreate:
+
+```bash
+repo wt go feature-branch
+# or
+repo wt rm feature-branch
+repo wt pr 123
+```
+
+### Fetch Failures
+
+**Problem:** Cannot fetch PR from remote.
+
+**Solution:** Check remote configuration:
+
+```bash
+git remote -v
+gh auth status
+```

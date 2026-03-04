@@ -1,0 +1,286 @@
+---
+title: repo convert
+description: Convert standard Git repositories to worktree layout
+---
+
+## Syntax
+
+```bash
+repo convert [path]
+```
+
+## Description
+
+The `repo convert` command transforms a standard Git repository into a bare + worktree layout. This enables efficient management of multiple branches as separate working directories.
+
+## Arguments
+
+<ParamField path="path" type="string" default="current directory">
+  Path to the Git repository to convert. If omitted, converts the current directory.
+</ParamField>
+
+## How It Works
+
+1. Validates that the target is a standard Git repository
+2. Determines the current branch
+3. Moves `.git` directory to `.bare`
+4. Creates a `.git` file pointing to `.bare`
+5. Configures the repository for worktree use
+6. Creates a subdirectory named after the current branch
+7. Moves all working files into that subdirectory
+8. Registers the subdirectory as a worktree
+9. Sets up upstream tracking
+
+## Examples
+
+### Convert current directory
+
+```bash
+cd ~/projects/my-app
+repo convert
+```
+
+Output:
+```
+Converting /home/user/repos/my-app to bare + worktree layout...
+Conversion complete.
+  Bare repo: /home/user/repos/my-app/.bare
+  Worktree:  /home/user/repos/my-app/main
+```
+
+### Convert specific repository
+
+```bash
+repo convert ~/projects/legacy-project
+```
+
+### Convert after moving to REPO_BASE_DIR
+
+```bash
+mv ~/old-project $REPO_BASE_DIR/github.com/user/old-project
+repo convert $REPO_BASE_DIR/github.com/user/old-project
+```
+
+## Before and After
+
+### Before Conversion
+
+```
+my-app/
+├── .git/
+│   ├── HEAD
+│   ├── config
+│   ├── objects/
+│   └── refs/
+├── src/
+├── package.json
+└── README.md
+```
+
+### After Conversion
+
+```
+my-app/
+├── .bare/              # Bare repository (was .git/)
+│   ├── HEAD
+│   ├── config
+│   ├── objects/
+│   ├── refs/
+│   └── worktrees/
+│       └── main/
+├── .git                # File: "gitdir: .bare"
+└── main/               # Worktree for main branch
+    ├── .git            # File pointing to .bare/worktrees/main
+    ├── src/
+    ├── package.json
+    └── README.md
+```
+
+## Behavior
+
+### Successful Conversion
+
+```bash
+repo convert
+```
+
+Output:
+```
+Converting /path/to/repo to bare + worktree layout...
+Conversion complete.
+  Bare repo: /path/to/repo/.bare
+  Worktree:  /path/to/repo/main
+```
+
+You'll be automatically navigated to the worktree directory.
+
+### Already Converted
+
+If the repository already uses worktree layout:
+
+```bash
+repo convert
+```
+
+Output:
+```
+Repository is already in worktree layout: /path/to/repo
+```
+
+### Not a Git Repository
+
+```bash
+repo convert ~/not-a-repo
+```
+
+Output:
+```
+Error: /home/user/not-a-repo is not a git repository
+```
+
+### Inside a Worktree
+
+```bash
+cd ~/repos/project/feature-branch
+repo convert
+```
+
+Output:
+```
+Error: /path/to/worktree appears to be a worktree, not a root repository
+```
+
+### Detached HEAD
+
+```bash
+git checkout HEAD~1
+repo convert
+```
+
+Output:
+```
+Error: Could not determine current branch (detached HEAD?)
+```
+
+Checkout a branch before converting.
+
+## Configuration Changes
+
+The conversion process modifies Git configuration:
+
+```bash
+# Sets fetch refspec for proper remote tracking
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+
+# Configures bare repository mode
+git config core.bare true
+
+# Sets upstream tracking for the current branch
+git branch --set-upstream-to=origin/<branch> <branch>
+```
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone new repositories with worktree layout from the start
+- [repo wt](/worktree/overview) - Manage worktrees after conversion
+- [repo goto](/commands/goto) - Navigate between worktrees
+
+## Common Use Cases
+
+### Migrate existing projects
+
+```bash
+# Move project to REPO_BASE_DIR
+mv ~/projects/my-app $REPO_BASE_DIR/github.com/user/my-app
+
+# Convert to worktree layout
+repo convert $REPO_BASE_DIR/github.com/user/my-app
+
+# Now you can create additional worktrees
+repo wt add feature-branch
+```
+
+### Convert multiple repositories
+
+```bash
+for repo in ~/old-projects/*; do
+  if [ -d "$repo/.git" ]; then
+    echo "Converting $repo..."
+    repo convert "$repo"
+  fi
+done
+```
+
+### Prepare for multi-branch development
+
+```bash
+cd ~/projects/existing-repo
+repo convert
+repo wt add feature-1
+repo wt add feature-2
+```
+
+Now you can work on multiple branches simultaneously.
+
+## Advantages After Conversion
+
+<Card icon="check">
+  **Work on multiple branches simultaneously** - Each branch has its own directory
+</Card>
+
+<Card icon="check">
+  **Avoid stashing and checkout conflicts** - Switch between features instantly by changing directories
+</Card>
+
+<Card icon="check">
+  **Run builds in parallel** - Test different branches without interference
+</Card>
+
+<Card icon="check">
+  **Better IDE support** - Each worktree can have its own editor window with correct file state
+</Card>
+
+## Tips
+
+<Tip>
+  Before converting, ensure you're on the branch you want to use as your main worktree. That branch will become the directory name.
+</Tip>
+
+<Warning>
+  The conversion process moves files and modifies `.git` structure. Ensure you have no uncommitted changes and your repository is backed up or pushed to a remote.
+</Warning>
+
+<Note>
+  After conversion, you can create additional worktrees with `repo wt add <branch-name>`.
+</Note>
+
+## Implementation Details
+
+Source code: `functions/convert.zsh:1`
+
+The conversion process:
+
+1. **Validation** (`convert.zsh:4-18`)
+   - Checks for `.git` directory
+   - Ensures it's not already converted
+   - Verifies it's not a worktree
+
+2. **Branch Detection** (`convert.zsh:22-27`)
+   - Uses `git branch --show-current`
+   - Fails if in detached HEAD state
+
+3. **Restructuring** (`convert.zsh:29-58`)
+   - Moves `.git` → `.bare`
+   - Creates `.git` file pointing to `.bare`
+   - Moves all files into branch-named subdirectory
+   - Handles both regular files and dotfiles
+
+4. **Git Configuration** (`convert.zsh:36-62`)
+   - Configures fetch refspec
+   - Registers worktree with Git
+   - Sets up upstream tracking
+
+5. **Worktree Registration** (`convert.zsh:61-76`)
+   - Creates worktree admin directory
+   - Links worktree to bare repository
+   - Ensures proper Git metadata

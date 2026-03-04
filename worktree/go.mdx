@@ -1,0 +1,229 @@
+---
+title: repo wt go
+description: Navigate to a worktree directory
+---
+
+Navigate to a worktree directory with proper environment setup and hooks.
+
+## Syntax
+
+```bash
+repo wt go <branch>
+```
+
+## Arguments
+
+- `<branch>` (required): The branch name of the worktree to navigate to
+
+## Behavior
+
+The `go` command provides smart navigation to worktrees:
+
+### 1. Branch Name Resolution
+
+- Takes the branch name as input (not the full path)
+- Constructs the worktree path: `<repo-root>/<branch>/`
+- Validates that the worktree exists
+
+Source: `functions/worktree.zsh:107-110`
+
+### 2. Worktree Validation
+
+Before navigation:
+- Checks if the worktree directory exists
+- If not found, displays an error and lists available worktrees
+- Provides helpful context for correcting the branch name
+
+Source: `functions/worktree.zsh:112-117`
+
+### 3. Post-Navigation Hooks
+
+After validation, the `post_wt_go` hook is called:
+- Changes to the worktree directory
+- May activate environment-specific configuration
+- May display custom information about the worktree
+- Ensures proper shell environment setup
+
+Source: `functions/worktree.zsh:119`
+
+## Why Use `go` Instead of `cd`?
+
+While you can manually `cd` to a worktree path, using `repo wt go` provides:
+
+1. **Path Resolution**: No need to remember full paths or repository structure
+2. **Validation**: Ensures the worktree exists before attempting navigation
+3. **Hooks**: Runs environment setup that may be required for the project
+4. **Convenience**: Simple branch name instead of full filesystem path
+5. **Error Handling**: Helpful messages if the worktree doesn't exist
+
+## Examples
+
+### Navigate to Existing Worktree
+
+```bash
+# Navigate to feature branch worktree
+repo wt go feature/new-ui
+
+# Your shell is now in: /path/to/repo/feature/new-ui/
+```
+
+Source: `functions/worktree.zsh:119`
+
+### Navigate to Default Branch
+
+```bash
+# Go back to main branch worktree
+repo wt go main
+
+# Your shell is now in: /path/to/repo/main/
+```
+
+### Quick Branch Switching
+
+```bash
+# Switch between worktrees rapidly
+repo wt go feature-a    # Work on feature A
+repo wt go fix-bug      # Switch to bug fix
+repo wt go feature-a    # Back to feature A
+```
+
+### Combine with Other Commands
+
+```bash
+# Navigate and run tests
+repo wt go test-branch && npm test
+
+# Navigate and start development server
+repo wt go feature-api && npm run dev
+```
+
+## Error Cases
+
+### Missing Branch Name
+
+```bash
+repo wt go
+
+# Output:
+# Error: Branch name is required
+# Usage: repo wt go <branch>
+```
+
+Source: `functions/worktree.zsh:101-105`
+
+### Worktree Not Found
+
+```bash
+# Trying to navigate to non-existent worktree
+repo wt go feature-xyz
+
+# Output:
+# Error: Worktree not found: /path/to/repo/feature-xyz
+# Available worktrees:
+# /path/to/repo/.bare           (bare)
+# /path/to/repo/main            abc1234 [main]
+# /path/to/repo/feature-a       def5678 [feature-a]
+```
+
+The command helpfully displays all available worktrees so you can see valid options.
+
+Source: `functions/worktree.zsh:112-117`
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt go my-branch
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+The command must be run from within a repo-managed repository.
+
+Source: `functions/worktree.zsh:108-109`
+
+## Tips and Best Practices
+
+### Use Tab Completion
+
+If your shell is configured with tab completion for Repo Manager:
+
+```bash
+# Type and press Tab to autocomplete
+repo wt go feat<Tab>
+# Completes to: repo wt go feature-name
+```
+
+### Check Available Worktrees First
+
+If you're unsure which worktrees exist:
+
+```bash
+# List all worktrees
+repo wt list
+
+# Navigate to desired worktree
+repo wt go <branch-name>
+```
+
+### Create and Navigate in One Flow
+
+```bash
+# Create worktree if it doesn't exist, then navigate
+repo wt add feature-new && repo wt go feature-new
+```
+
+### Rapid Context Switching
+
+Worktrees eliminate the need to stash changes:
+
+```bash
+# Working on feature-a with uncommitted changes
+repo wt go feature-b  # Instantly switch to feature-b
+
+# Changes in feature-a remain intact
+repo wt go feature-a  # Return to feature-a with changes preserved
+```
+
+### Branch Name Format
+
+The branch name used with `go` should match:
+- The directory name under the repository root
+- The branch name used when creating the worktree
+- The branch name shown in `repo wt list` output (without brackets)
+
+For example, if `repo wt list` shows:
+```
+/path/to/repo/feature/api-v2  [feature/api-v2]
+```
+
+Use:
+```bash
+repo wt go feature/api-v2
+```
+
+### Error Recovery
+
+If you get a "Worktree not found" error:
+
+1. Check the exact branch name with `repo wt list`
+2. Verify the worktree wasn't removed
+3. Create the worktree if needed with `repo wt add`
+
+### Shell Environment
+
+The `post_wt_go` hook may:
+- Activate project-specific environments (Node.js version, Python virtualenv, etc.)
+- Load environment variables
+- Display project status or reminders
+- Run custom setup scripts
+
+This is why `repo wt go` is preferred over manual `cd` commands.
+
+## See Also
+
+- [repo wt list](/worktree/list) - View all worktrees
+- [repo wt add](/worktree/add) - Create new worktrees
+- [repo wt rm](/worktree/rm) - Remove worktrees
+- [Worktree Overview](/worktree/overview) - Understanding worktrees

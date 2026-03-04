@@ -1,0 +1,197 @@
+---
+title: repo new
+description: Create new local Git repositories
+---
+
+## Syntax
+
+```bash
+repo new <repository-path>
+repo create <repository-path>    # Alias
+```
+
+## Description
+
+The `repo new` command creates a new local Git repository under your `$REPO_BASE_DIR`. It initializes the repository with `git init` and navigates to the newly created directory.
+
+## Arguments
+
+<ParamField path="repository-path" type="string" required>
+  The path for the new repository relative to `$REPO_BASE_DIR`. The path is cleaned and normalized:
+  - Protocol prefixes are removed if present
+  - `.git` suffix is automatically stripped
+  - Simple names like `my-project` are used as-is
+</ParamField>
+
+## Examples
+
+### Create a simple project
+
+```bash
+repo new my-project
+```
+
+Creates and initializes `$REPO_BASE_DIR/my-project/`
+
+### Create with nested path
+
+```bash
+repo new experiments/machine-learning
+```
+
+Creates `$REPO_BASE_DIR/experiments/machine-learning/`
+
+### Create using the alias
+
+```bash
+repo create quick-prototype
+```
+
+## Behavior
+
+### New Repository
+
+When creating a new repository:
+
+```bash
+repo new my-app
+```
+
+1. Creates directory: `$REPO_BASE_DIR/my-app/`
+2. Runs: `git init $REPO_BASE_DIR/my-app/`
+3. Changes to the new directory
+
+Output:
+```
+Initialized empty Git repository in /path/to/repos/my-app/.git/
+```
+
+### Repository Already Exists
+
+If a repository with the same path already exists:
+
+```bash
+repo new existing-project
+```
+
+Output:
+```
+Repository already exists: /path/to/repos/existing-project
+```
+
+The command navigates to the existing repository without re-initializing it.
+
+### Parent Directories
+
+Parent directories are created automatically if they don't exist:
+
+```bash
+repo new deep/nested/path/project
+```
+
+Creates all intermediate directories: `deep/`, `deep/nested/`, `deep/nested/path/`
+
+## Directory Structure
+
+After running `repo new my-project`, the structure is:
+
+```
+my-project/
+└── .git/
+    ├── HEAD
+    ├── config
+    ├── objects/
+    └── refs/
+```
+
+This is a standard Git repository layout (not worktree-based).
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone an existing repository
+- [repo goto](/commands/goto) - Navigate to the repository later
+- [repo convert](/commands/convert) - Convert to worktree layout if needed
+- [repo list](/commands/list) - List all repositories including newly created ones
+
+## Common Use Cases
+
+### Start a new project
+
+```bash
+repo new my-awesome-app
+touch README.md
+git add README.md
+git commit -m "Initial commit"
+```
+
+### Create experimental repositories
+
+```bash
+repo new experiments/$(date +%Y-%m-%d)-test
+```
+
+Creates date-stamped experimental repositories.
+
+### Organize by category
+
+```bash
+repo new work/client-project
+repo new personal/hobby-app
+repo new learning/rust-practice
+```
+
+### Quick prototyping
+
+```bash
+repo create prototype-$(uuidgen | cut -d- -f1)
+```
+
+Creates a uniquely named prototype repository.
+
+## Tips
+
+<Tip>
+  Use descriptive paths that match your organizational structure. For example:
+  - `work/company/project-name`
+  - `personal/category/app-name`
+  - `learning/language/exercise-name`
+</Tip>
+
+<Note>
+  The `repo new` command creates standard Git repositories, not worktree-based ones. To convert an existing repository to worktree layout, use `repo convert`.
+</Note>
+
+<Warning>
+  If you specify a path with `.git` suffix, it will be stripped. `repo new project.git` creates a repository at `project/`, not `project.git/`.
+</Warning>
+
+## Workflow Example
+
+```bash
+# Create a new project
+repo new my-api
+
+# Initialize with files
+echo "# My API" > README.md
+mkdir src
+touch src/main.js
+
+# Make initial commit
+git add .
+git commit -m "Initial commit"
+
+# Add remote and push
+git remote add origin git@github.com:user/my-api.git
+git push -u origin main
+```
+
+## Implementation Details
+
+Source code: `functions/new.zsh:1`
+
+The command:
+1. Cleans the repository path using `clean_repo_path`
+2. Constructs the full path under `$REPO_BASE_DIR`
+3. Creates parent directories with `mkdir -p`
+4. Runs `git init` unless `.git` already exists
+5. Navigates to the repository via the `post_repo_new` hook

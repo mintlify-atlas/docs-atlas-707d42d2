@@ -1,0 +1,289 @@
+---
+title: repo wt rm
+description: Remove a worktree from the repository
+---
+
+Remove a worktree and clean up its associated branch and files.
+
+## Syntax
+
+```bash
+repo wt rm <branch>
+# or
+repo wt remove <branch>
+```
+
+## Arguments
+
+- `<branch>` (required): The branch name of the worktree to remove
+
+## Behavior
+
+The `rm` command safely removes worktrees with built-in protections:
+
+### 1. Branch Name Resolution
+
+- Takes the branch name as input
+- Constructs the worktree path: `<repo-root>/<branch>/`
+- Prepares for validation and removal
+
+Source: `functions/worktree.zsh:74-77`
+
+### 2. Default Branch Protection
+
+Before attempting removal:
+- Detects the repository's default branch (main/master)
+- Prevents removal of the default branch worktree
+- Displays an error if attempted
+
+This protection ensures you always have a stable base worktree.
+
+Source: `functions/worktree.zsh:79-84`
+
+### 3. Worktree Existence Check
+
+Validates that the worktree exists:
+- Checks if the worktree directory is present
+- Displays an error if the worktree is not found
+- Prevents attempting to remove non-existent worktrees
+
+Source: `functions/worktree.zsh:86-89`
+
+### 4. Git Worktree Removal
+
+Attempts to remove the worktree using Git:
+- Executes `git worktree remove` on the worktree path
+- Git validates that the worktree can be safely removed
+- Fails if there are uncommitted changes or other issues
+
+Source: `functions/worktree.zsh:91-94`
+
+### 5. Post-Removal Hooks
+
+After successful removal:
+- Calls the `post_wt_rm` hook with the removed path
+- May perform cleanup tasks
+- May navigate away from the removed directory
+
+Source: `functions/worktree.zsh:96-97`
+
+## Examples
+
+### Remove Feature Branch Worktree
+
+```bash
+# Remove completed feature worktree
+repo wt rm feature/new-dashboard
+
+# Output:
+# Removed worktree: /path/to/repo/feature/new-dashboard
+```
+
+Source: `functions/worktree.zsh:96`
+
+### Using Alias
+
+```bash
+# 'remove' is an alias for 'rm'
+repo wt remove fix/login-bug
+
+# Output:
+# Removed worktree: /path/to/repo/fix/login-bug
+```
+
+Source: `functions/worktree.zsh:8`
+
+### Cleanup Workflow
+
+```bash
+# After merging a branch
+git checkout main
+git pull
+
+# Remove the old feature worktree
+repo wt rm feature/old-feature
+
+# List remaining worktrees
+repo wt list
+```
+
+## Error Cases
+
+### Missing Branch Name
+
+```bash
+repo wt rm
+
+# Output:
+# Error: Branch name is required
+# Usage: repo wt rm <branch>
+```
+
+Source: `functions/worktree.zsh:68-72`
+
+### Attempting to Remove Default Branch
+
+```bash
+# Trying to remove main branch worktree
+repo wt rm main
+
+# Output:
+# Error: Cannot remove the default branch worktree (main)
+```
+
+The default branch (main or master) is protected and cannot be removed. This ensures you always have a stable base worktree.
+
+Source: `functions/worktree.zsh:79-84`
+
+### Worktree Not Found
+
+```bash
+# Trying to remove non-existent worktree
+repo wt rm feature-xyz
+
+# Output:
+# Error: Worktree not found: /path/to/repo/feature-xyz
+```
+
+Verify the worktree exists with `repo wt list` before attempting removal.
+
+Source: `functions/worktree.zsh:86-89`
+
+### Uncommitted Changes
+
+```bash
+# Trying to remove worktree with uncommitted work
+repo wt rm feature/in-progress
+
+# Output:
+# Error: Failed to remove worktree. It may have uncommitted changes.
+```
+
+Git protects against data loss by preventing removal of worktrees with uncommitted changes.
+
+**Solutions:**
+1. Commit your changes: `cd <worktree> && git commit -am "Save work"`
+2. Stash your changes: `cd <worktree> && git stash`
+3. Force remove (data loss): `cd <worktree> && git worktree remove --force .`
+
+Source: `functions/worktree.zsh:91-94`
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt rm my-branch
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+The command must be run from within a repo-managed repository.
+
+Source: `functions/worktree.zsh:75-76`
+
+## Tips and Best Practices
+
+### Check Before Removing
+
+List worktrees to confirm the branch name:
+
+```bash
+# View all worktrees
+repo wt list
+
+# Remove specific worktree
+repo wt rm <branch-from-list>
+```
+
+### Commit or Stash First
+
+Always save your work before removing:
+
+```bash
+# Navigate to worktree
+repo wt go feature-branch
+
+# Check for uncommitted changes
+git status
+
+# Commit or stash changes
+git add .
+git commit -m "Completed feature"
+
+# Now safe to remove
+repo wt rm feature-branch
+```
+
+### Remove After Merging
+
+Clean up feature branches after they're merged:
+
+```bash
+# After PR is merged
+repo wt go main
+git pull
+
+# Remove the merged feature worktree
+repo wt rm feature/merged-feature
+```
+
+### Batch Cleanup
+
+For removing multiple worktrees, consider:
+
+```bash
+# Remove individual worktrees
+repo wt rm feature-a
+repo wt rm feature-b
+repo wt rm feature-c
+
+# Or use clean to remove all at once
+repo wt clean
+```
+
+See [repo wt clean](/worktree/clean) for batch removal.
+
+### Current Directory Handling
+
+If you're currently in the worktree being removed:
+- The `post_wt_rm` hook typically navigates you to another worktree
+- Usually moves you to the default branch worktree
+- Prevents issues with working in a removed directory
+
+### Default Branch Identification
+
+The default branch is automatically detected:
+- Usually `main` or `master`
+- Determined by Git's repository configuration
+- Can be checked with: `git symbolic-ref refs/remotes/origin/HEAD`
+
+### Branch vs Directory Name
+
+The branch name used with `rm` should match:
+- The directory name under the repository root
+- The branch name used when creating the worktree
+- For branches with slashes (e.g., `feature/api`), use the full name including slashes
+
+### Worktree vs Branch
+
+Important distinction:
+- `repo wt rm` removes the **worktree** (working directory)
+- It does **not** delete the Git branch itself
+- The branch remains and can be used to create a new worktree later
+- To delete the branch: `git branch -d <branch-name>`
+
+### Recovery
+
+If you accidentally remove a worktree:
+- The Git branch still exists
+- Commits are not lost
+- Simply recreate: `repo wt add <branch>`
+- Your work is safe as long as it was committed
+
+## See Also
+
+- [repo wt clean](/worktree/clean) - Remove all non-default worktrees
+- [repo wt list](/worktree/list) - View all worktrees
+- [repo wt add](/worktree/add) - Create new worktrees
+- [Worktree Overview](/worktree/overview) - Understanding worktrees

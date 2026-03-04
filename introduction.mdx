@@ -1,0 +1,115 @@
+---
+title: Introduction
+description: A ZSH plugin for managing git repositories using a worktree-first workflow
+---
+
+## What is Repo Manager?
+
+Repo Manager is a ZSH plugin that transforms how you work with git repositories by using a worktree-first workflow. Instead of constantly switching branches, stashing changes, and dealing with checkout conflicts, Repo Manager clones repositories as bare repos with worktrees for each branch, enabling instant context switching.
+
+## The problem it solves
+
+Traditional git workflows force you into a single-directory, single-branch context:
+
+- You're working on a feature, but need to quickly review a PR
+- You have to stash your work, checkout the PR branch, review it, then checkout back and unstash
+- With multiple tasks, you're constantly juggling `git stash`, `git checkout`, and hoping you don't lose work
+- Running parallel builds or tests requires manual workarounds
+
+Repo Manager eliminates this friction entirely.
+
+## Key benefits
+
+**Instant context switching**
+
+Each branch lives in its own directory. Switch between branches by simply changing directories—no stashing, no checkout thrashing.
+
+```zsh
+repo wt go feature-auth    # cd to feature-auth worktree
+repo wt go main            # cd to main worktree
+```
+
+**Parallel workflows**
+
+Run builds, tests, or servers on multiple branches simultaneously. Each worktree is an independent working directory.
+
+**PR reviews without disruption**
+
+Create a worktree from any GitHub PR, review the code, run tests, then remove it—all without touching your work-in-progress branches.
+
+```zsh
+repo wt pr 42              # fetch PR #42, create worktree, cd into it
+# review, test, comment
+repo wt rm pr-branch       # clean up
+```
+
+**Organized repository structure**
+
+All repositories are stored in a consistent, hierarchical layout under `$REPO_BASE_DIR`:
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/            # bare git repo
+├── .git              # file pointing to .bare
+├── main/             # worktree for main branch
+├── feature-auth/     # worktree for feature branch
+└── fix-crash/        # worktree from PR review
+```
+
+## How it compares to standard git workflow
+
+<CodeGroup>
+```zsh Standard Git
+# Working on feature, need to review PR
+git stash
+git checkout pr-branch
+# review code
+git checkout feature-auth
+git stash pop
+
+# Can't run parallel builds/tests
+# Can't keep multiple branches ready
+# Risk of stash conflicts
+```
+
+```zsh Repo Manager
+# Working on feature, need to review PR
+repo wt pr 123              # instant new worktree
+# review code in separate directory
+repo wt go feature-auth     # back to feature work
+
+# Run builds on multiple branches
+# Keep all active work ready
+# No stashing ever needed
+```
+</CodeGroup>
+
+<Note>
+Repo Manager uses git's native worktree feature under the hood, but automates the bare repository setup and worktree management that would otherwise require manual git commands.
+</Note>
+
+## Directory layout
+
+After cloning with `repo get github.com/user/repo`, you get:
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/            # bare git repo (stores all git data)
+├── .git              # file pointing to .bare
+├── main/             # worktree for default branch
+├── feature-auth/     # worktree added via repo wt add
+└── fix-crash/        # worktree added via repo wt pr
+```
+
+Each worktree directory is a fully functional git working directory, sharing the same git history from `.bare/`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Repo Manager with your ZSH plugin manager
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Clone your first repo and create worktrees
+  </Card>
+</CardGroup>

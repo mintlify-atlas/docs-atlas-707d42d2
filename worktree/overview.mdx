@@ -1,0 +1,106 @@
+---
+title: Worktree Management Overview
+description: Manage multiple working trees for parallel development
+---
+
+Worktrees allow you to work on multiple branches simultaneously without switching contexts or stashing changes. Repo Manager provides a streamlined interface for managing Git worktrees.
+
+## What are Worktrees?
+
+A worktree is a separate working directory linked to the same repository. Each worktree can have a different branch checked out, enabling you to:
+
+- Work on multiple features simultaneously
+- Review pull requests without disrupting your current work
+- Run tests on one branch while developing on another
+- Quickly switch between branches without stashing
+
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `repo wt add <branch>` | Create a new worktree for a branch |
+| `repo wt list` | List all worktrees in the repository |
+| `repo wt go <branch>` | Navigate to a worktree |
+| `repo wt rm <branch>` | Remove a worktree |
+| `repo wt pr <number>` | Create a worktree for a pull request |
+| `repo wt clean` | Remove all worktrees except default branch |
+
+## Common Workflows
+
+### Working on a New Feature
+
+```bash
+# Create a worktree for the feature branch
+repo wt add feature/new-ui
+
+# Navigate to the worktree
+repo wt go feature/new-ui
+
+# Work on the feature...
+
+# When done, remove the worktree
+repo wt rm feature/new-ui
+```
+
+### Reviewing a Pull Request
+
+```bash
+# Create a worktree from PR #123
+repo wt pr 123
+
+# Navigate to the PR worktree
+repo wt go <branch-name>
+
+# Review and test the changes...
+
+# Clean up when done
+repo wt rm <branch-name>
+```
+
+### Managing Multiple Tasks
+
+```bash
+# List all active worktrees
+repo wt list
+
+# Switch between worktrees
+repo wt go feature-a
+repo wt go bugfix-b
+
+# Clean up all feature worktrees at once
+repo wt clean
+```
+
+## Worktree Structure
+
+Worktrees are organized within your repository root:
+
+```
+my-repo/
+├── .bare/           # Bare repository (managed by repo manager)
+├── main/            # Default branch worktree
+├── feature-a/       # Feature branch worktree
+└── bugfix-b/        # Bugfix branch worktree
+```
+
+Each worktree is a fully functional working directory with its own:
+- Checked out files
+- Index (staging area)
+- Current branch
+
+## Best Practices
+
+- **Default Branch Protection**: The default branch worktree (main/master) cannot be removed
+- **Clean Regularly**: Use `repo wt clean` to remove unused worktrees
+- **Commit Before Removing**: Worktrees with uncommitted changes cannot be removed
+- **Unique Branches**: Each worktree must use a different branch
+- **Navigate with `go`**: Use `repo wt go` instead of manual `cd` for proper setup
+
+## Next Steps
+
+- [Add Worktrees](/worktree/add) - Create new worktrees
+- [List Worktrees](/worktree/list) - View all worktrees
+- [Navigate Worktrees](/worktree/go) - Switch between worktrees
+- [Remove Worktrees](/worktree/rm) - Delete worktrees
+- [PR Worktrees](/worktree/pr) - Work with pull requests
+- [Clean Worktrees](/worktree/clean) - Batch cleanup

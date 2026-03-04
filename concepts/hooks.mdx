@@ -1,0 +1,385 @@
+---
+title: Hooks
+description: Customizing behavior with post-action hooks
+---
+
+## Overview
+
+Repo Manager provides hooks that execute after key operations. These hooks allow you to customize behavior like opening editors, switching tmux windows, or running project-specific setup.
+
+## Available Hooks
+
+All hooks are defined in functions/hooks.zsh with default implementations:
+
+### `post_repo_clone`
+
+Executed after cloning a repository with `repo get`.
+
+**Default behavior:**
+```zsh
+post_repo_clone() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the created worktree (e.g., `~/repos/github.com/user/repo/main`)
+
+**When it runs:**
+- After `repo get <url>` successfully clones and creates initial worktree (functions/clone.zsh:55)
+- After `repo convert` transforms a standard repository (functions/convert.zsh:83)
+
+### `post_repo_goto`
+
+Executed after navigating to a repository with `repo goto`.
+
+**Default behavior:**
+```zsh
+post_repo_goto() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the worktree (e.g., `~/repos/github.com/user/repo/main`)
+
+**When it runs:**
+- After `repo goto <repo>` resolves target worktree (functions/goto.zsh:36, 44, 50, 53)
+- If multiple worktrees exist and `fzf` is installed, runs after user selects from picker
+
+### `post_repo_new`
+
+Executed after creating a new repository with `repo new`.
+
+**Default behavior:**
+```zsh
+post_repo_new() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the created repository directory
+
+**When it runs:**
+- After `repo new <name>` creates a new repository
+
+### `post_wt_add`
+
+Executed after creating a worktree with `repo wt add`.
+
+**Default behavior:**
+```zsh
+post_wt_add() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the created worktree (e.g., `~/repos/github.com/user/repo/feature-auth`)
+
+**When it runs:**
+- After `repo wt add <branch>` creates a new worktree (functions/worktree.zsh:58)
+- After `repo wt pr <number>` creates a worktree from a PR (functions/worktree.zsh:175)
+- If worktree already exists, still runs (functions/worktree.zsh:35, 158)
+
+### `post_wt_go`
+
+Executed after switching to a worktree with `repo wt go`.
+
+**Default behavior:**
+```zsh
+post_wt_go() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the target worktree
+
+**When it runs:**
+- After `repo wt go <branch>` validates the worktree exists (functions/worktree.zsh:119)
+
+### `post_wt_rm`
+
+Executed after removing a worktree with `repo wt rm`.
+
+**Default behavior:**
+```zsh
+post_wt_rm() {
+  :  # no-op
+}
+```
+
+**Parameters:**
+- `$1` - Path to the removed worktree
+
+**When it runs:**
+- After `repo wt rm <branch>` successfully removes a worktree (functions/worktree.zsh:97)
+- Not called by `repo wt clean` (which removes multiple worktrees)
+
+## Overriding Hooks
+
+Override hooks by redefining them in your `.zshrc` **after** loading the plugin:
+
+```zsh
+# Load plugin first
+zinit light abs3ntdev/repo-manager
+
+# Then override hooks
+post_repo_clone() {
+  cd "$1" && code .
+}
+
+post_wt_add() {
+  cd "$1" && code .
+}
+```
+
+## Real-World Examples
+
+### Opening Editor Automatically
+
+```zsh
+post_repo_clone() {
+  cd "$1" && nvim .
+}
+
+post_wt_add() {
+  cd "$1" && nvim .
+}
+
+post_wt_go() {
+  cd "$1" && nvim .
+}
+```
+
+Now every navigation or creation command opens your editor.
+
+### Tmux Integration
+
+Create tmux windows for each worktree:
+
+```zsh
+post_wt_add() {
+  local wt_path="$1"
+  local branch=$(basename "$wt_path")
+  
+  if [[ -n "$TMUX" ]]; then
+    tmux new-window -n "$branch" -c "$wt_path"
+  else
+    cd "$wt_path"
+  fi
+}
+
+post_wt_go() {
+  local wt_path="$1"
+  local branch=$(basename "$wt_path")
+  
+  if [[ -n "$TMUX" ]]; then
+    # Switch to existing window or create new one
+    if ! tmux select-window -t "$branch" 2>/dev/null; then
+      tmux new-window -n "$branch" -c "$wt_path"
+    fi
+  else
+    cd "$wt_path"
+  fi
+}
+```
+
+### Running Project Setup
+
+Automatically install dependencies in new worktrees:
+
+```zsh
+post_wt_add() {
+  cd "$1"
+  
+  if [[ -f package.json ]]; then
+    echo "Installing dependencies..."
+    npm install
+  elif [[ -f Gemfile ]]; then
+    echo "Installing gems..."
+    bundle install
+  fi
+}
+```
+
+### Notification on Completion
+
+Send desktop notification when clone completes:
+
+```zsh
+post_repo_clone() {
+  local wt_path="$1"
+  local repo=$(basename $(dirname "$wt_path"))
+  
+  cd "$wt_path"
+  notify-send "Repo Manager" "Cloned $repo"
+}
+```
+
+### Combining Multiple Actions
+
+```zsh
+post_wt_add() {
+  local wt_path="$1"
+  local branch=$(basename "$wt_path")
+  
+  cd "$wt_path"
+  
+  # Install dependencies if needed
+  [[ -f package.json ]] && npm install
+  
+  # Open in tmux window
+  if [[ -n "$TMUX" ]]; then
+    tmux new-window -n "$branch" -c "$wt_path"
+  fi
+  
+  # Open editor
+  code .
+}
+```
+
+### Conditional Behavior
+
+Different behavior based on repository:
+
+```zsh
+post_wt_add() {
+  cd "$1"
+  
+  local repo_root=$(resolve_repo_root)
+  local repo_name=$(basename "$repo_root")
+  
+  case "$repo_name" in
+    frontend-app)
+      npm install && npm run dev
+      ;;
+    backend-api)
+      docker-compose up -d
+      ;;
+    docs)
+      code .
+      ;;
+  esac
+}
+```
+
+## Hook Execution Order
+
+Understanding when hooks fire:
+
+### Clone Workflow
+
+```zsh
+repo get github.com/user/repo
+```
+
+1. Clone bare repository to `.bare/`
+2. Create initial worktree (e.g., `main/`)
+3. **post_repo_clone** fires with path to `main/`
+
+### Add Worktree Workflow
+
+```zsh
+repo wt add feature-auth
+```
+
+1. Fetch from origin
+2. Create worktree at `feature-auth/`
+3. Set upstream tracking
+4. **post_wt_add** fires with path to `feature-auth/`
+
+### PR Workflow
+
+```zsh
+repo wt pr 123
+```
+
+1. Query GitHub for PR branch name
+2. Fetch PR ref
+3. Create worktree
+4. **post_wt_add** fires (not a separate hook)
+
+### Navigate Workflow
+
+```zsh
+repo wt go main
+```
+
+1. Validate worktree exists
+2. **post_wt_go** fires with path to `main/`
+
+### Remove Workflow
+
+```zsh
+repo wt rm feature-auth
+```
+
+1. Validate not default branch
+2. Remove worktree
+3. **post_wt_rm** fires with path that was removed
+
+## Best Practices
+
+### Keep Hooks Fast
+
+Hooks run synchronously - slow operations block the command:
+
+```zsh
+# Bad: blocks for 30+ seconds
+post_wt_add() {
+  cd "$1" && npm install && npm test
+}
+
+# Better: run in background
+post_wt_add() {
+  cd "$1"
+  (npm install && npm test) &
+}
+
+# Best: optional background with feedback
+post_wt_add() {
+  cd "$1"
+  echo "Installing dependencies in background..."
+  (npm install && notify-send "Dependencies installed") &
+}
+```
+
+### Handle Errors Gracefully
+
+```zsh
+post_wt_add() {
+  cd "$1"
+  
+  if [[ -f package.json ]]; then
+    if command -v npm >/dev/null 2>&1; then
+      npm install
+    else
+      echo "Warning: npm not found, skipping install"
+    fi
+  fi
+}
+```
+
+### Use Helper Functions
+
+Repo Manager provides utility functions you can use in hooks:
+
+```zsh
+post_wt_add() {
+  cd "$1"
+  
+  local repo_root=$(resolve_repo_root)
+  local default_branch=$(detect_default_branch "$repo_root/.bare")
+  
+  echo "Created worktree (default branch: $default_branch)"
+}
+```
+
+Available helpers (functions/core.zsh):
+- `resolve_repo_root()` - Find repository root from current directory
+- `detect_default_branch(bare_dir)` - Get default branch name
+- `is_worktree_repo(dir)` - Check if directory uses worktree layout
+- `clean_repo_path(url)` - Normalize repository URLs

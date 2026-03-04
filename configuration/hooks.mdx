@@ -1,0 +1,239 @@
+---
+title: Hooks
+description: Customize behavior with post-action hooks
+---
+
+## Overview
+
+Repo Manager provides hooks that execute after specific commands. You can override these hooks to customize behavior, such as opening editors, switching tmux sessions, or running custom scripts.
+
+## Available Hooks
+
+All hooks receive the repository or worktree path as their first argument (`$1`).
+
+### post_repo_clone
+
+Executes after successfully cloning a repository.
+
+```bash
+post_repo_clone() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the cloned repository
+
+**Default behavior:** Changes directory to the cloned repository.
+
+---
+
+### post_repo_goto
+
+Executes after navigating to a repository with `repo goto`.
+
+```bash
+post_repo_goto() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the repository or worktree
+
+**Default behavior:** Changes directory to the repository.
+
+---
+
+### post_repo_new
+
+Executes after creating a new repository with `repo new`.
+
+```bash
+post_repo_new() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the newly created repository
+
+**Default behavior:** Changes directory to the new repository.
+
+---
+
+### post_wt_add
+
+Executes after adding a new worktree with `repo wt add` or `repo wt pr`.
+
+```bash
+post_wt_add() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the new worktree
+
+**Default behavior:** Changes directory to the new worktree.
+
+---
+
+### post_wt_go
+
+Executes after navigating to a worktree with `repo wt go`.
+
+```bash
+post_wt_go() {
+  cd "$1"
+}
+```
+
+**Parameters:**
+- `$1` - Path to the worktree
+
+**Default behavior:** Changes directory to the worktree.
+
+---
+
+### post_wt_rm
+
+Executes after removing a worktree with `repo wt rm`.
+
+```bash
+post_wt_rm() {
+  :
+}
+```
+
+**Parameters:**
+- `$1` - Path to the removed worktree
+
+**Default behavior:** No operation (`:` is a no-op in shell).
+
+## Overriding Hooks
+
+Define hook functions in your `.zshrc` **after** loading the plugin:
+
+```bash
+# Load the plugin first
+zinit light your-username/repo-manager
+
+# Then override hooks
+post_repo_clone() {
+  cd "$1"
+  echo "Cloned to: $1"
+}
+```
+
+## Real-World Examples
+
+### Open in VS Code
+
+Automatically open repositories in VS Code after cloning:
+
+```bash
+post_repo_clone() {
+  cd "$1"
+  code .
+}
+```
+
+### Switch tmux Session
+
+Create or switch to a tmux session named after the repository:
+
+```bash
+post_repo_goto() {
+  cd "$1"
+  local session_name=$(basename "$1")
+  
+  if tmux has-session -t "$session_name" 2>/dev/null; then
+    tmux switch-client -t "$session_name"
+  else
+    tmux new-session -d -s "$session_name" -c "$1"
+    tmux switch-client -t "$session_name"
+  fi
+}
+```
+
+### Run Setup Scripts
+
+Automatically run setup scripts for new repositories:
+
+```bash
+post_repo_clone() {
+  cd "$1"
+  
+  # Install dependencies if package.json exists
+  if [[ -f "package.json" ]]; then
+    echo "Installing npm dependencies..."
+    npm install
+  fi
+  
+  # Run setup script if it exists
+  if [[ -x "./setup.sh" ]]; then
+    echo "Running setup script..."
+    ./setup.sh
+  fi
+}
+```
+
+### Notify on Completion
+
+Send desktop notifications when operations complete:
+
+```bash
+post_repo_clone() {
+  cd "$1"
+  local repo_name=$(basename "$1")
+  notify-send "Repo Manager" "Cloned $repo_name"
+}
+```
+
+### Open in Split Pane
+
+Open worktrees in a new tmux pane:
+
+```bash
+post_wt_add() {
+  if [[ -n "$TMUX" ]]; then
+    tmux split-window -h -c "$1"
+  else
+    cd "$1"
+  fi
+}
+```
+
+### Conditional Behavior
+
+Different actions based on repository characteristics:
+
+```bash
+post_repo_goto() {
+  cd "$1"
+  
+  # Open Python projects in VS Code
+  if [[ -f "pyproject.toml" ]] || [[ -f "setup.py" ]]; then
+    code .
+  # Open web projects in browser
+  elif [[ -f "package.json" ]]; then
+    echo "Web project detected. Run 'npm start' to begin."
+  fi
+}
+```
+
+## Best Practices
+
+- Always include `cd "$1"` if you want to change directory
+- Test hooks with simple commands before adding complex logic
+- Use `[[ -f file ]]` checks before running file-dependent commands
+- Handle cases where external tools (VS Code, tmux) aren't installed
+- Keep hooks fast to avoid slowing down operations
+
+## Tips
+
+- Hooks run in the current shell context, so `cd` changes persist
+- Use `return 1` to indicate an error, but it won't prevent the operation from succeeding
+- Access environment variables and other shell functions normally
+- Hooks don't receive stderr/stdout from the original command

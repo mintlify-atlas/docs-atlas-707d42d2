@@ -1,0 +1,225 @@
+---
+title: Directory Layout
+description: Understanding the repository structure created by Repo Manager
+---
+
+## Overview
+
+Repo Manager organizes repositories using a bare repository with multiple worktrees. This structure enables parallel work, instant context switching, and no stashing workflow.
+
+## Default Base Directory
+
+All repositories are stored under `$REPO_BASE_DIR`, which defaults to `$HOME/repos`. You can customize this by setting the environment variable:
+
+```zsh
+export REPO_BASE_DIR="$HOME/code"
+```
+
+Repositories maintain their source hierarchy. For example:
+- `github.com/user/repo` → `$REPO_BASE_DIR/github.com/user/repo/`
+- `gitlab.com/org/project` → `$REPO_BASE_DIR/gitlab.com/org/project/`
+
+## Structure After `repo get`
+
+When you run `repo get github.com/user/repo`, the following structure is created:
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/            # bare git repository (all git metadata)
+├── .git              # file (not directory) pointing to .bare
+└── main/             # worktree for default branch
+    ├── .git          # file pointing to .bare/worktrees/main
+    ├── src/
+    ├── package.json
+    └── ...
+```
+
+## Components
+
+### The `.bare/` Directory
+
+This is a bare git repository containing all git objects, refs, and configuration:
+
+```
+.bare/
+├── branches/
+├── config
+├── description
+├── HEAD
+├── hooks/
+├── info/
+├── objects/
+├── packed-refs
+├── refs/
+└── worktrees/        # metadata for each worktree
+    ├── main/
+    │   ├── gitdir
+    │   ├── commondir
+    │   └── HEAD
+    └── feature-auth/
+        ├── gitdir
+        ├── commondir
+        └── HEAD
+```
+
+The bare repository is configured with:
+- `remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*` for proper fetching
+- Standard origin URL
+- Worktree metadata in `.bare/worktrees/`
+
+See functions/clone.zsh:34-42 for bare clone setup.
+
+### The Root `.git` File
+
+Unlike standard repositories where `.git` is a directory, here it's a **file** containing:
+
+```
+gitdir: .bare
+```
+
+This tells git commands run from the repository root to use `.bare/` as the git directory. It's created during clone (functions/clone.zsh:39) and convert (functions/convert.zsh:33).
+
+### Worktree Subdirectories
+
+Each branch gets its own subdirectory named after the branch:
+
+```
+main/                 # default branch worktree
+feature-auth/         # created with: repo wt add feature-auth
+fix-crash/            # created with: repo wt add fix-crash
+pr-123/               # created with: repo wt pr 123
+```
+
+Inside each worktree:
+
+```
+main/
+├── .git              # file pointing to .bare/worktrees/main
+├── src/
+│   └── index.js
+├── package.json
+└── README.md
+```
+
+The `.git` file in each worktree contains:
+```
+gitdir: ../.bare/worktrees/main
+```
+
+This links the worktree to its metadata in the bare repository.
+
+## Example: Multiple Worktrees
+
+After creating several worktrees:
+
+```zsh
+repo get github.com/user/repo
+repo wt add feature-auth
+repo wt add feature-search
+repo wt pr 42
+```
+
+The full structure:
+
+```
+$REPO_BASE_DIR/github.com/user/repo/
+├── .bare/
+│   ├── config
+│   ├── HEAD
+│   ├── objects/
+│   ├── refs/
+│   └── worktrees/
+│       ├── main/
+│       ├── feature-auth/
+│       ├── feature-search/
+│       └── pr-42-branch/
+├── .git → "gitdir: .bare"
+├── main/
+│   ├── .git → "gitdir: ../.bare/worktrees/main"
+│   └── [working files]
+├── feature-auth/
+│   ├── .git → "gitdir: ../.bare/worktrees/feature-auth"
+│   └── [working files]
+├── feature-search/
+│   ├── .git → "gitdir: ../.bare/worktrees/feature-search"
+│   └── [working files]
+└── pr-42-branch/
+    ├── .git → "gitdir: ../.bare/worktrees/pr-42-branch"
+    └── [working files]
+```
+
+## How Commands Use This Layout
+
+### Finding Repository Root
+
+Commands like `repo wt add` need to find the repository root. They use `resolve_repo_root()` which walks up directories looking for `.bare/` (functions/core.zsh:16-27):
+
+```zsh
+# Works from anywhere inside a worktree
+cd ~/repos/github.com/user/repo/main/src/components
+repo wt add new-feature  # Finds .bare/ by walking up to repo root
+```
+
+### Detecting Default Branch
+
+The default branch is determined from the bare repository's HEAD (functions/core.zsh:29-38):
+
+```zsh
+default_branch=$(detect_default_branch "$bare_dir")
+# Returns: main, master, or whatever HEAD points to
+```
+
+### Listing Worktrees
+
+```zsh
+repo wt list
+# Uses: git --git-dir="$repo_root/.bare" worktree list
+```
+
+See functions/worktree.zsh:61-65.
+
+## Converting Standard Clones
+
+If you have an existing repository with standard layout:
+
+```
+repo/
+└── .git/             # standard git directory
+    ├── objects/
+    ├── refs/
+    └── ...
+```
+
+Running `repo convert` transforms it to:
+
+```
+repo/
+├── .bare/            # moved from .git/
+├── .git              # file pointing to .bare
+└── main/             # all files moved here
+    ├── .git          # file pointing to .bare/worktrees/main
+    └── [working files]
+```
+
+The conversion process (functions/convert.zsh:20-83):
+1. Detects current branch
+2. Moves `.git/` → `.bare/`
+3. Creates `.git` file pointing to `.bare`
+4. Moves all working files into `<branch>/` subdirectory
+5. Registers worktree with git
+6. Configures upstream tracking
+
+## Path Resolution
+
+Repo Manager normalizes repository paths:
+
+```zsh
+repo get https://github.com/user/repo
+repo get git@github.com:user/repo.git
+repo get github.com/user/repo
+repo get user/repo                    # assumes github.com
+```
+
+All resolve to: `$REPO_BASE_DIR/github.com/user/repo/`
+
+See functions/core.zsh:1-14 for path cleaning logic.

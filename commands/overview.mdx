@@ -1,0 +1,56 @@
+---
+title: Command Reference
+description: Complete reference for all Repo Manager commands
+---
+
+Repo Manager provides a set of commands for managing Git repositories with a worktree-based workflow. All commands are accessed through the `repo` command.
+
+## Command List
+
+### Repository Management
+
+<Card title="repo get" icon="download" href="/commands/get">
+  Clone a repository from GitHub, GitLab, or any Git hosting service using the bare + worktree layout
+</Card>
+
+<Card title="repo goto" icon="arrow-right" href="/commands/goto">
+  Navigate to a repository and select a worktree interactively
+</Card>
+
+<Card title="repo list" icon="list" href="/commands/list">
+  List all repositories managed by Repo Manager
+</Card>
+
+<Card title="repo new" icon="plus" href="/commands/new">
+  Create a new local Git repository
+</Card>
+
+<Card title="repo open" icon="browser" href="/commands/open">
+  Open the current repository's remote URL in a web browser
+</Card>
+
+<Card title="repo convert" icon="rotate" href="/commands/convert">
+  Convert a standard Git repository to the bare + worktree layout
+</Card>
+
+## Quick Reference
+
+| Command | Description | Example |
+|---------|-------------|--------|
+| `repo get <url>` | Clone a repository | `repo get github.com/user/project` |
+| `repo goto <path>` | Navigate to a repository | `repo goto user/project` |
+| `repo list` | List all repositories | `repo list` |
+| `repo new <path>` | Create a new repository | `repo new my-project` |
+| `repo open` | Open repository in browser | `repo open` |
+| `repo convert [path]` | Convert to worktree layout | `repo convert` |
+
+## Command Aliases
+
+Several commands have shorter aliases for convenience:
+
+- `repo go` → `repo goto`
+- `repo create` → `repo new`
+
+## Getting Help
+
+Run `repo help` or `repo --help` to display the built-in help message.

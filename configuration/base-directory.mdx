@@ -1,0 +1,90 @@
+---
+title: Base Directory
+description: Configure where Repo Manager stores your repositories
+---
+
+## Overview
+
+Repo Manager uses a base directory to organize all your repositories. By default, repositories are cloned into subdirectories under this base path, mirroring their remote URL structure.
+
+## REPO_BASE_DIR Environment Variable
+
+The base directory is controlled by the `REPO_BASE_DIR` environment variable.
+
+### Default Value
+
+If not set, the default base directory is:
+
+```bash
+$HOME/repos
+```
+
+This means repositories are organized under `~/repos/` by default.
+
+## Customizing the Base Directory
+
+To change the base directory, set `REPO_BASE_DIR` in your `.zshrc` **before** loading the plugin:
+
+```bash
+# Set custom base directory
+export REPO_BASE_DIR="$HOME/projects"
+
+# Then load the plugin (example with zinit)
+zinit light your-username/repo-manager
+```
+
+<Warning>
+Set `REPO_BASE_DIR` **before** loading the plugin. Setting it after the plugin loads will have no effect.
+</Warning>
+
+## Impact on Repository Organization
+
+### Directory Structure
+
+Repositories are organized by their remote URL path:
+
+```
+$REPO_BASE_DIR/
+  github.com/
+    owner1/
+      repo1/
+      repo2/
+    owner2/
+      repo3/
+  gitlab.com/
+    company/
+      project1/
+```
+
+### Example
+
+With `REPO_BASE_DIR="$HOME/repos"`:
+
+```bash
+repo clone github.com/torvalds/linux
+# Clones to: ~/repos/github.com/torvalds/linux
+
+repo clone gitlab.com/gitlab-org/gitlab
+# Clones to: ~/repos/gitlab.com/gitlab-org/gitlab
+```
+
+## Migration
+
+If you change `REPO_BASE_DIR` after cloning repositories:
+
+1. The plugin will look for repositories in the new location
+2. Existing repositories in the old location won't be automatically moved
+3. You can manually move repositories to maintain the same structure:
+
+```bash
+# Old base: ~/repos
+# New base: ~/projects
+mv ~/repos/* ~/projects/
+```
+
+## Best Practices
+
+- Choose a base directory with sufficient disk space for your repositories
+- Use a consistent location across your development machines
+- Avoid spaces in the path to prevent shell quoting issues
+- Consider using `$HOME` prefix for portability across systems

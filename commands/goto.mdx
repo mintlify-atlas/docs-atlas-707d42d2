@@ -1,0 +1,169 @@
+---
+title: repo goto
+description: Navigate to repositories and select worktrees
+---
+
+## Syntax
+
+```bash
+repo goto <repository-path>
+repo go <repository-path>    # Alias
+```
+
+## Description
+
+The `repo goto` command navigates to a repository in your `$REPO_BASE_DIR`. For repositories with multiple worktrees, it presents an interactive selector (using `fzf` if available) to choose which worktree to enter.
+
+## Arguments
+
+<ParamField path="repository-path" type="string" required>
+  The repository path relative to `$REPO_BASE_DIR`. The path is cleaned and normalized:
+  - Protocol prefixes are removed (`https://`, `git@`, etc.)
+  - Colons are converted to slashes
+  - Short paths like `user/repo` expand to `github.com/user/repo`
+</ParamField>
+
+## Examples
+
+### Navigate to a repository
+
+```bash
+repo goto torvalds/linux
+```
+
+Navigates to `$REPO_BASE_DIR/github.com/torvalds/linux/main/` (or the default branch).
+
+### Navigate with full path
+
+```bash
+repo goto github.com/user/project
+```
+
+### Navigate to GitLab repository
+
+```bash
+repo goto gitlab.com/gitlab-org/gitlab
+```
+
+## Behavior
+
+### Single Worktree
+
+If the repository has only one worktree (the default branch), you are automatically taken there:
+
+```bash
+repo goto user/repo
+# → cd $REPO_BASE_DIR/github.com/user/repo/main
+```
+
+### Multiple Worktrees (with fzf)
+
+If the repository has multiple worktrees and `fzf` is installed, an interactive selector appears:
+
+```bash
+repo goto user/repo
+```
+
+```
+> Select worktree:
+  main
+  feature-1
+  bugfix-2
+  experiment
+```
+
+Use arrow keys to select and press Enter.
+
+### Multiple Worktrees (without fzf)
+
+If `fzf` is not available, the command defaults to the default branch worktree:
+
+```bash
+repo goto user/repo
+# → cd $REPO_BASE_DIR/github.com/user/repo/main
+```
+
+### Standard Git Layout
+
+For repositories using standard Git layout (not converted to worktree layout), the command navigates to the repository root:
+
+```bash
+repo goto old-repo
+# → cd $REPO_BASE_DIR/github.com/user/old-repo
+```
+
+### Repository Not Found
+
+If the repository doesn't exist:
+
+```
+Error: Repository not found: /path/to/repo
+```
+
+You may need to clone it first with `repo get`.
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone a repository before navigating to it
+- [repo list](/commands/list) - List all available repositories
+- [repo wt go](/worktree/go) - Navigate between worktrees within the current repository
+
+## Common Use Cases
+
+### Quick navigation
+
+```bash
+repo go user/repo
+```
+
+Use the shorter `go` alias for faster typing.
+
+### Switch between projects
+
+```bash
+repo goto project-a
+# Work on project-a
+repo goto project-b
+# Work on project-b
+```
+
+### Work with different branches
+
+```bash
+repo goto user/repo
+# Select "feature-branch" from fzf
+# → cd $REPO_BASE_DIR/github.com/user/repo/feature-branch
+```
+
+## Tips
+
+<Tip>
+  Install `fzf` to enable interactive worktree selection:
+  
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install fzf
+  
+  # macOS
+  brew install fzf
+  
+  # Arch Linux
+  sudo pacman -S fzf
+  ```
+</Tip>
+
+<Note>
+  The command skips worktrees that are not subdirectories of the repository root, ensuring you only see relevant worktrees for selection.
+</Note>
+
+## Implementation Details
+
+Source code: `functions/goto.zsh:1`
+
+The command:
+1. Cleans and normalizes the repository path
+2. Checks if the repository exists
+3. Detects if it uses worktree layout (`.bare` directory)
+4. Lists all worktrees using `git worktree list --porcelain`
+5. Presents worktrees for selection if multiple exist and `fzf` is available
+6. Navigates to the selected worktree via the `post_repo_goto` hook

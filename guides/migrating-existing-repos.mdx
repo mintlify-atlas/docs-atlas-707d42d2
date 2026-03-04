@@ -1,0 +1,199 @@
+---
+title: Migrating Existing Repositories
+description: Convert standard Git clones to Repo Manager's worktree layout
+---
+
+## Overview
+
+If you have existing Git repositories that use the traditional single-worktree layout, you can migrate them to Repo Manager's bare + worktree structure using the `repo convert` command.
+
+## What Happens During Conversion
+
+The conversion process transforms your repository structure:
+
+**Before conversion:**
+```
+my-project/
+├── .git/          # Regular git directory
+├── src/
+├── package.json
+└── ...
+```
+
+**After conversion:**
+```
+my-project/
+├── .bare/         # Bare repository (was .git)
+├── .git           # File pointing to .bare
+└── main/          # Worktree for main branch
+    ├── src/
+    ├── package.json
+    └── ...
+```
+
+The conversion process (from functions/convert.zsh:29-83):
+
+1. **Moves `.git` to `.bare`** - Preserves all Git history and configuration
+2. **Creates a `.git` file** - Points to `.bare` directory for Git operations
+3. **Configures for worktree use** - Sets `core.bare` and remote fetch configuration
+4. **Creates branch-named subdirectory** - Moves all working files into it
+5. **Registers the worktree** - Links the new directory structure with Git
+6. **Sets upstream tracking** - Maintains connection to remote branch
+
+## Step-by-Step Migration Guide
+
+### 1. Navigate to Your Repository
+
+```bash
+cd /path/to/existing-repo
+```
+
+### 2. Run the Convert Command
+
+```bash
+repo convert
+```
+
+Or specify a path:
+
+```bash
+repo convert /path/to/existing-repo
+```
+
+### 3. Review the Output
+
+You'll see confirmation of the conversion:
+
+```
+Converting /path/to/existing-repo to bare + worktree layout...
+Conversion complete.
+  Bare repo: /path/to/existing-repo/.bare
+  Worktree:  /path/to/existing-repo/main
+```
+
+### 4. Update Your Workflow
+
+After conversion:
+
+- Your working files are now in a subdirectory named after your current branch
+- You can create additional worktrees using `repo wt add <branch>`
+- The `.bare` directory contains all Git history and should not be modified directly
+
+## Verification Steps
+
+After converting, verify everything works correctly:
+
+### Check Worktree Status
+
+```bash
+repo wt list
+```
+
+You should see your main worktree listed.
+
+### Verify Git Operations
+
+```bash
+cd main  # or whatever your current branch was
+git status
+git log
+```
+
+All Git commands should work normally.
+
+### Test Remote Operations
+
+```bash
+git fetch
+git pull
+```
+
+Remote operations should work as before.
+
+### Create a New Worktree
+
+```bash
+repo wt add feature-branch
+```
+
+This confirms the worktree structure is properly set up.
+
+## Troubleshooting
+
+### "Not a git repository" Error
+
+**Problem:** `repo convert` reports the directory isn't a Git repository.
+
+**Solution:** Ensure you're in a directory with a `.git` folder:
+
+```bash
+ls -la | grep .git
+```
+
+### "Already in worktree layout" Message
+
+**Problem:** The repository has already been converted.
+
+**Solution:** No action needed. The repository is already using worktree layout.
+
+### "Appears to be a worktree" Error
+
+**Problem:** You're trying to convert from inside a worktree, not the root repository.
+
+**Solution:** Navigate to the root repository directory (the one containing `.git` as a directory, not a file).
+
+### Detached HEAD State
+
+**Problem:** Conversion fails because you're in detached HEAD state.
+
+**Solution:** Check out a branch first:
+
+```bash
+git checkout main
+repo convert
+```
+
+### Uncommitted Changes
+
+**Problem:** You're worried about uncommitted changes during conversion.
+
+**Solution:** The conversion preserves all files and Git state. However, for peace of mind:
+
+```bash
+# Check for uncommitted changes
+git status
+
+# Optionally commit or stash changes first
+git stash
+repo convert
+git stash pop
+```
+
+### File Permissions or Symlinks
+
+**Problem:** Special files (symlinks, executable permissions) after conversion.
+
+**Solution:** Git preserves file metadata. Verify after conversion:
+
+```bash
+git status  # Should show no changes
+```
+
+## Best Practices
+
+- **Convert before creating worktrees** - Easier to manage from the start
+- **Commit or stash changes first** - Clean working tree makes verification easier
+- **Test after conversion** - Run tests to ensure nothing broke
+- **Update documentation** - Let team members know about the new structure
+- **Consider CI/CD updates** - Build scripts may need path adjustments
+
+## Rolling Back
+
+If you need to revert to standard layout:
+
+1. Remove all worktrees except the main branch
+2. Move files from the branch directory back to root
+3. Move `.bare` back to `.git`
+4. Update `.git/config` to remove worktree settings
+
+However, it's recommended to use the worktree layout - it provides significant benefits for parallel development workflows.

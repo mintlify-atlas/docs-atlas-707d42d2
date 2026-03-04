@@ -1,0 +1,179 @@
+---
+title: repo list
+description: List all managed repositories
+---
+
+## Syntax
+
+```bash
+repo list
+```
+
+## Description
+
+The `repo list` command displays all Git repositories managed by Repo Manager under your `$REPO_BASE_DIR`. It finds both worktree-layout repositories and standard Git repositories.
+
+## Output
+
+The command outputs repository paths relative to `$REPO_BASE_DIR`, one per line:
+
+```
+github.com/torvalds/linux
+github.com/facebook/react
+gitlab.com/gitlab-org/gitlab
+my-local-project
+```
+
+## How It Works
+
+### Worktree-Managed Repositories
+
+Finds all directories containing a `.bare` subdirectory:
+
+```bash
+find "$REPO_BASE_DIR" -type d -name ".bare"
+```
+
+These are repositories cloned with `repo get` or converted with `repo convert`.
+
+### Standard Git Repositories
+
+Finds all directories containing a `.git` subdirectory:
+
+```bash
+find "$REPO_BASE_DIR" -type d -name ".git"
+```
+
+Excludes worktrees within worktree-managed repositories to avoid duplicates.
+
+## Examples
+
+### List all repositories
+
+```bash
+repo list
+```
+
+Output:
+```
+github.com/user/project-a
+github.com/user/project-b
+gitlab.com/org/project-c
+local-experiments
+```
+
+### Count repositories
+
+```bash
+repo list | wc -l
+```
+
+### Search for specific repositories
+
+```bash
+repo list | grep react
+```
+
+Output:
+```
+github.com/facebook/react
+github.com/user/react-clone
+```
+
+### Pipe to fzf for interactive selection
+
+```bash
+repo goto $(repo list | fzf)
+```
+
+This creates an interactive repository picker.
+
+## Repository Types
+
+The command detects and lists both layout types:
+
+### Worktree Layout
+
+Repositories with this structure:
+```
+repo-name/
+├── .bare/          # Indicates worktree layout
+├── .git
+└── main/
+```
+
+### Standard Layout
+
+Repositories with this structure:
+```
+repo-name/
+├── .git/           # Standard Git directory
+└── src/
+```
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone a new repository
+- [repo goto](/commands/goto) - Navigate to a repository from the list
+- [repo new](/commands/new) - Create a new local repository
+
+## Common Use Cases
+
+### Audit your repositories
+
+```bash
+repo list
+```
+
+See all repositories you've cloned or created.
+
+### Create a backup script
+
+```bash
+#!/bin/bash
+repo list | while read repo; do
+  echo "Backing up $repo..."
+  # Add backup logic here
+done
+```
+
+### Interactive navigation
+
+```bash
+repo goto $(repo list | fzf --prompt="Select repo: ")
+```
+
+Combine with `fzf` for a powerful navigation workflow.
+
+### Check for specific repositories
+
+```bash
+if repo list | grep -q "user/important-repo"; then
+  echo "Repository found"
+else
+  echo "Repository not found, cloning..."
+  repo get user/important-repo
+fi
+```
+
+## Tips
+
+<Tip>
+  The output of `repo list` is designed to be pipe-friendly. Use it with standard Unix tools like `grep`, `awk`, `wc`, and `fzf` for powerful workflows.
+</Tip>
+
+<Note>
+  The command automatically filters out worktree subdirectories to prevent duplicate listings. Each repository appears only once, regardless of how many worktrees it contains.
+</Note>
+
+## Implementation Details
+
+Source code: `functions/list.zsh:1`
+
+The command performs two `find` operations:
+
+1. Searches for `.bare` directories to identify worktree-layout repositories
+2. Searches for `.git` directories to identify standard Git repositories
+3. Excludes `.git` directories inside worktree-managed repositories (when the grandparent has a `.bare` directory)
+
+Output paths are stripped of the `$REPO_BASE_DIR/` prefix for cleaner display.

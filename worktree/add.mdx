@@ -1,0 +1,206 @@
+---
+title: repo wt add
+description: Create a new worktree for a branch
+---
+
+Create a new worktree for a specified branch. The command handles both existing and new branches automatically.
+
+## Syntax
+
+```bash
+repo wt add <branch>
+```
+
+## Arguments
+
+- `<branch>` (required): The branch name for the worktree
+
+## Behavior
+
+The `add` command creates a new worktree with intelligent branch handling:
+
+### 1. Check for Existing Worktree
+
+If a worktree already exists for the branch:
+- Displays a message that the worktree exists
+- Runs post-add hooks (e.g., directory navigation)
+- Returns successfully without modification
+
+### 2. Fetch Latest Changes
+
+Before creating the worktree:
+- Fetches from `origin` to ensure branch information is up-to-date
+- Uses the bare repository configuration at `.bare/`
+
+### 3. Branch Resolution
+
+The command checks for branches in this priority order:
+
+**Remote Branch** (highest priority)
+- If `origin/<branch>` exists, creates worktree from remote branch
+- Sets up tracking relationship: `branch -> origin/branch`
+- Automatically pulls latest changes from remote
+
+**Local Branch**
+- If `<branch>` exists locally but not remotely, uses local branch
+- No tracking relationship is set
+
+**New Branch** (lowest priority)
+- If branch doesn't exist locally or remotely, creates a new branch
+- Branches off from the default branch (main/master)
+- Does not set up remote tracking initially
+
+### 4. Worktree Location
+
+Worktrees are created at: `<repo-root>/<branch>/`
+
+For example, if your repo is at `/Users/dev/my-repo` and you add branch `feature-x`:
+- Worktree path: `/Users/dev/my-repo/feature-x/`
+
+### 5. Post-Add Hooks
+
+After successful creation, the `post_wt_add` hook is called with the worktree path, which may:
+- Navigate to the worktree directory
+- Run environment setup commands
+- Display custom messages
+
+## Examples
+
+### Create Worktree from Remote Branch
+
+```bash
+# Create worktree for existing remote branch
+repo wt add feature/new-dashboard
+
+# Output:
+# Fetching origin...
+# Created worktree: /Users/dev/my-repo/feature/new-dashboard
+```
+
+Source: `functions/worktree.zsh:39-43`
+
+### Create Worktree for New Branch
+
+```bash
+# Create worktree with new branch
+repo wt add fix/login-bug
+
+# Output:
+# Fetching origin...
+# Created worktree: /Users/dev/my-repo/fix/login-bug
+```
+
+Branch is created from the default branch (main/master).
+
+Source: `functions/worktree.zsh:47-49`
+
+### Create Worktree from Local Branch
+
+```bash
+# If you have a local-only branch
+repo wt add experimental-feature
+
+# Output:
+# Fetching origin...
+# Created worktree: /Users/dev/my-repo/experimental-feature
+```
+
+Source: `functions/worktree.zsh:44-45`
+
+## Error Cases
+
+### Missing Branch Name
+
+```bash
+repo wt add
+
+# Output:
+# Error: Branch name is required
+# Usage: repo wt add <branch>
+```
+
+Source: `functions/worktree.zsh:21-25`
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt add my-branch
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+The command requires being run from within a repo-managed repository.
+
+Source: `functions/worktree.zsh:29`
+
+### Git Worktree Creation Failed
+
+```bash
+# If git worktree command fails
+repo wt add invalid-branch
+
+# Output:
+# Error: Failed to create worktree for branch invalid-branch
+```
+
+This can occur if:
+- The branch name contains invalid characters
+- Disk space is insufficient
+- File permissions prevent directory creation
+
+Source: `functions/worktree.zsh:52-55`
+
+## Tips and Best Practices
+
+### Branch Naming
+
+- Use clear, descriptive branch names: `feature/`, `fix/`, `refactor/` prefixes
+- Avoid special characters that may cause filesystem issues
+- Branch names become directory names, so keep them filesystem-friendly
+
+### Workflow Integration
+
+```bash
+# Create and navigate in one flow
+repo wt add feature/api-v2 && repo wt go feature/api-v2
+```
+
+### Handling Existing Worktrees
+
+If you run `add` on an existing worktree:
+- No error occurs
+- Worktree is not recreated
+- Post-add hooks still run (useful for navigation)
+
+```bash
+# Safe to run multiple times
+repo wt add feature-x  # Creates worktree
+repo wt add feature-x  # Displays "already exists", runs hooks
+```
+
+Source: `functions/worktree.zsh:33-37`
+
+### Remote Tracking
+
+When adding a branch that exists remotely:
+- Tracking is automatically configured
+- `git pull` and `git push` work without additional setup
+- You can immediately start working with remote changes
+
+### Starting from Default Branch
+
+New branches are created from your repository's default branch:
+- Usually `main` or `master`
+- Automatically detected by Repo Manager
+- Ensures consistent starting point for new work
+
+Source: `functions/worktree.zsh:47-49`
+
+## See Also
+
+- [repo wt list](/worktree/list) - View all worktrees
+- [repo wt go](/worktree/go) - Navigate to a worktree
+- [repo wt rm](/worktree/rm) - Remove a worktree
+- [repo wt pr](/worktree/pr) - Create worktree from pull request

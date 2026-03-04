@@ -1,0 +1,203 @@
+---
+title: repo wt list
+description: List all worktrees in the repository
+---
+
+Display all worktrees in the current repository with their locations, branches, and commit information.
+
+## Syntax
+
+```bash
+repo wt list
+# or
+repo wt ls
+```
+
+## Arguments
+
+This command takes no arguments.
+
+## Behavior
+
+The `list` command displays comprehensive information about all worktrees:
+
+### 1. Worktree Discovery
+
+- Locates the repository root using `resolve_repo_root`
+- Accesses the bare repository at `.bare/`
+- Queries Git for all registered worktrees
+
+Source: `functions/worktree.zsh:61-65`
+
+### 2. Information Displayed
+
+For each worktree, Git provides:
+
+- **Worktree path**: Full filesystem path to the worktree directory
+- **Branch name**: The currently checked out branch
+- **Commit hash**: Short hash of the current HEAD commit
+- **Commit message**: First line of the commit message
+
+### 3. Bare Repository Entry
+
+The output includes the bare repository itself (`.bare/`):
+- Listed as `(bare)` instead of a branch name
+- Not typically used for direct work
+- Can be ignored in most workflows
+
+## Output Format
+
+Git's worktree list displays in this format:
+
+```
+/path/to/repo/.bare       (bare)
+/path/to/repo/main        abc1234 [main] Latest commit message
+/path/to/repo/feature-a   def5678 [feature-a] Add new feature
+/path/to/repo/fix-bug     ghi9012 [fix-bug] Fix critical bug
+```
+
+Each line contains:
+1. Absolute path to worktree
+2. Commit hash (7 characters)
+3. Branch name in brackets
+4. Commit message (first line)
+
+## Examples
+
+### List All Worktrees
+
+```bash
+repo wt list
+
+# Output:
+# /Users/dev/my-repo/.bare           (bare)
+# /Users/dev/my-repo/main            a1b2c3d [main] Update documentation
+# /Users/dev/my-repo/feature-auth    e4f5g6h [feature-auth] Implement OAuth
+# /Users/dev/my-repo/fix-validation  i7j8k9l [fix-validation] Fix form validation
+```
+
+### Using Short Alias
+
+```bash
+# 'ls' is an alias for 'list'
+repo wt ls
+
+# Same output as 'repo wt list'
+```
+
+Source: `functions/worktree.zsh:7`
+
+### Check Before Adding
+
+```bash
+# Check if a worktree already exists
+repo wt list | grep feature-x
+
+# If no output, the worktree doesn't exist
+repo wt add feature-x
+```
+
+### Count Worktrees
+
+```bash
+# Count all worktrees (excluding bare repo)
+repo wt list | grep -v '(bare)' | wc -l
+
+# Output: 3
+```
+
+## Error Cases
+
+### Repository Root Not Found
+
+```bash
+# Running outside a repository
+repo wt list
+
+# Output:
+# Error: Not in a repo-managed repository
+```
+
+The command must be run from within a repo-managed repository.
+
+Source: `functions/worktree.zsh:62-63`
+
+### No Worktrees Exist
+
+If only the bare repository exists (no worktrees created yet):
+
+```bash
+repo wt list
+
+# Output:
+# /Users/dev/my-repo/.bare  (bare)
+```
+
+This is normal for newly cloned repositories. Use `repo wt add` to create worktrees.
+
+## Tips and Best Practices
+
+### Quick Status Check
+
+Use `list` to get an overview of all active work:
+
+```bash
+repo wt list
+
+# Quickly see:
+# - Which branches have worktrees
+# - What commits each worktree is on
+# - Where each worktree is located
+```
+
+### Integration with Other Commands
+
+Combine with `grep` to find specific worktrees:
+
+```bash
+# Find all feature branches
+repo wt list | grep 'feature-'
+
+# Find a specific worktree
+repo wt list | grep 'bugfix-login'
+```
+
+### Identifying Default Branch
+
+The worktree for your default branch (main/master) is typically:
+- Listed first after the bare repository
+- Has a branch name of `[main]` or `[master]`
+- Cannot be removed with `repo wt rm` or `repo wt clean`
+
+### Detecting Stale Worktrees
+
+Look for worktrees with:
+- Very old commit dates
+- Branches that have been merged
+- Work that is no longer relevant
+
+Use `repo wt clean` to remove multiple stale worktrees at once.
+
+### Filesystem Paths
+
+Worktree paths shown are absolute, making it easy to:
+- Navigate directly: `cd /path/from/output`
+- Reference in scripts
+- Use with other tools
+
+However, prefer using `repo wt go <branch>` for navigation to ensure proper hooks run.
+
+### Bare Repository
+
+The `(bare)` entry in the output:
+- Is the actual Git repository storage
+- Should not be modified directly
+- Can be safely ignored in day-to-day work
+- Is used internally by all worktree commands
+
+## See Also
+
+- [repo wt add](/worktree/add) - Create new worktrees
+- [repo wt go](/worktree/go) - Navigate to a worktree
+- [repo wt rm](/worktree/rm) - Remove a specific worktree
+- [repo wt clean](/worktree/clean) - Remove all non-default worktrees
