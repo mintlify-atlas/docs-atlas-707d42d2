@@ -13,6 +13,10 @@ Repo Manager provides a set of commands for managing Git repositories with a wor
   Clone a repository from GitHub, GitLab, or any Git hosting service using the bare + worktree layout
 </Card>
 
+<Card title="repo aur" icon="box" href="/commands/aur">
+  Clone an Arch User Repository (AUR) package
+</Card>
+
 <Card title="repo goto" icon="arrow-right" href="/commands/goto">
   Navigate to a repository and select a worktree interactively
 </Card>
@@ -38,6 +42,7 @@ Repo Manager provides a set of commands for managing Git repositories with a wor
 | Command | Description | Example |
 |---------|-------------|--------|
 | `repo get <url>` | Clone a repository | `repo get github.com/user/project` |
+| `repo aur <package>` | Clone an AUR package | `repo aur yay` |
 | `repo goto <path>` | Navigate to a repository | `repo goto user/project` |
 | `repo list` | List all repositories | `repo list` |
 | `repo new <path>` | Create a new repository | `repo new my-project` |

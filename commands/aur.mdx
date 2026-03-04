@@ -1,0 +1,120 @@
+---
+title: repo aur
+description: Clone Arch User Repository (AUR) packages
+---
+
+## Overview
+
+The `repo aur` command is a specialized variant of `repo get` for cloning packages from the Arch User Repository (AUR). It automatically configures the correct AUR remote URL format.
+
+## Syntax
+
+```bash
+repo aur <package-name>
+```
+
+## Parameters
+
+<ParamField path="package-name" type="string" required>
+  The name of the AUR package to clone
+</ParamField>
+
+## How It Works
+
+`repo aur` internally calls the same cloning logic as `repo get`, but uses the AUR-specific URL format:
+
+```text
+aur@aur.archlinux.org:<package-name>
+```
+
+The repository is cloned to:
+
+```text
+$REPO_BASE_DIR/aur.archlinux.org/<package-name>/
+```
+
+## Examples
+
+### Clone an AUR package
+
+```bash
+repo aur yay
+```
+
+This clones the `yay` package from AUR and creates:
+
+```text
+$REPO_BASE_DIR/aur.archlinux.org/yay/
+├── .bare/       # bare git repo
+├── .git         # file pointing to .bare
+└── master/      # worktree for master branch
+```
+
+### Clone and build
+
+```bash
+repo aur paru
+cd ~/repos/aur.archlinux.org/paru/master
+makepkg -si
+```
+
+## Use Cases
+
+### Building AUR packages
+
+The worktree layout is particularly useful for AUR packages because you can:
+
+1. Keep the package source in one worktree
+2. Test modifications in a separate worktree
+3. Track upstream changes without disrupting your local builds
+
+```bash
+# Clone the package
+repo aur package-name
+
+# Create a worktree for your modifications
+repo wt add custom-build
+
+# In one terminal: build from master
+cd ~/repos/aur.archlinux.org/package-name/master
+makepkg -si
+
+# In another terminal: test modifications
+cd ~/repos/aur.archlinux.org/package-name/custom-build
+# Edit PKGBUILD
+makepkg -si
+```
+
+### Maintaining AUR packages
+
+If you maintain AUR packages, you can use worktrees for different versions:
+
+```bash
+repo aur my-package
+repo wt add stable
+repo wt add testing
+
+# Update stable version
+cd ~/repos/aur.archlinux.org/my-package/stable
+# Make changes, test, commit
+
+# Work on experimental features in testing
+cd ~/repos/aur.archlinux.org/my-package/testing
+# Experiment without affecting stable
+```
+
+## Related Commands
+
+- [repo get](/commands/get) - Clone regular git repositories
+- [repo convert](/commands/convert) - Convert existing AUR clones to worktree layout
+- [repo wt](/worktree/overview) - Manage worktrees after cloning
+
+## Notes
+
+<Note>
+This command is Arch Linux-specific and only works with packages hosted on the Arch User Repository.
+</Note>
+
+<Tip>
+The AUR uses `master` as the default branch name rather than `main`.
+</Tip>
